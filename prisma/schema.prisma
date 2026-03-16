@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../server/src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Inspector {
+  id           String             @id @default(cuid())
+  email        String             @unique
+  passwordHash String             @map("password_hash")
+  name         String
+  role         String             @default("inspector")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  sessions     InventorySession[]
+  scanRecords  ScanRecord[]
+
+  @@map("inspectors")
+}
+
+model BuildingType {
+  id          String                    @id @default(cuid())
+  nameNl      String                    @unique @map("name_nl")
+  nameFr      String                    @map("name_fr")
+  active      Boolean                   @default(true)
+  sessions    InventorySession[]
+  objectTypes ObjectTypeBuildingType[]
+
+  @@map("building_types")
+}
+
+model ObjectType {
+  id             String                    @id @default(cuid())
+  nameNl         String                    @unique @map("name_nl")
+  nameFr         String                    @map("name_fr")
+  heliOmCategory String                    @map("heli_om_category")
+  active         Boolean                   @default(true)
+  buildingTypes  ObjectTypeBuildingType[]
+  scanRecords    ScanRecord[]
+
+  @@map("object_types")
+}
+
+model ObjectTypeBuildingType {
+  objectTypeId   String       @map("object_type_id")
+  buildingTypeId String       @map("building_type_id")
+  objectType     ObjectType   @relation(fields: [objectTypeId], references: [id])
+  buildingType   BuildingType @relation(fields: [buildingTypeId], references: [id])
+
+  @@id([objectTypeId, buildingTypeId])
+  @@map("object_type_building_types")
+}
+
+model InventorySession {
+  id             String       @id @default(cuid())
+  inspectorId    String       @map("inspector_id")
+  clientAddress  String       @map("client_address")
+  buildingTypeId String       @map("building_type_id")
+  status         String       @default("active")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  completedAt    DateTime?    @map("completed_at")
+  inspector      Inspector    @relation(fields: [inspectorId], references: [id])
+  buildingType   BuildingType @relation(fields: [buildingTypeId], references: [id])
+  scanRecords    ScanRecord[]
+
+  @@map("inventory_sessions")
+}
+
+model ScanRecord {
+  id               String            @id @default(cuid())
+  sessionId        String            @map("session_id")
+  inspectorId      String            @map("inspector_id")
+  photoPath        String            @map("photo_path")
+  aiProposedTypeId String?           @map("ai_proposed_type_id")
+  aiConfidence     Float?            @map("ai_confidence")
+  aiRawResponse    String?           @map("ai_raw_response")
+  confirmedTypeId  String?           @map("confirmed_type_id")
+  status           String            @default("pending")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  confirmedAt      DateTime?         @map("confirmed_at")
+  session          InventorySession  @relation(fields: [sessionId], references: [id])
+  inspector        Inspector         @relation(fields: [inspectorId], references: [id])
+  confirmedType    ObjectType?       @relation(fields: [confirmedTypeId], references: [id])
+  scanJob          ScanJob?
+
+  @@map("scan_records")
+}
+
+model ScanJob {
+  id           String     @id @default(cuid())
+  scanRecordId String     @unique @map("scan_record_id")
+  status       String     @default("pending")
+  attempts     Int        @default(0)
+  lastError    String?    @map("last_error")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  processedAt  DateTime?  @map("processed_at")
+  scanRecord   ScanRecord @relation(fields: [scanRecordId], references: [id])
+
+  @@map("scan_jobs")
+}

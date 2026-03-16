@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+*.log
+data/photos/
+.DS_Store
+*.tsbuildinfo
+client/dist/
+server/dist/
+server/src/generated/
