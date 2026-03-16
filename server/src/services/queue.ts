@@ -104,16 +104,17 @@ let running = false;
 export function startQueueWorker(): void {
   if (running) return;
   running = true;
-  logger.info('Queue worker started');
+  logger.info('Queue worker started (waiting 10s for DB readiness)');
 
-  const poll = () => {
-    if (!running) return;
-    pollOnce().finally(() => {
-      setTimeout(poll, POLL_INTERVAL_MS);
-    });
-  };
-
-  poll();
+  setTimeout(() => {
+    const poll = () => {
+      if (!running) return;
+      pollOnce().finally(() => {
+        setTimeout(poll, POLL_INTERVAL_MS);
+      });
+    };
+    poll();
+  }, 10_000);
 }
 
 export function stopQueueWorker(): void {
