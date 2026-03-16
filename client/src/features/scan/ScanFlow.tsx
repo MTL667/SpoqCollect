@@ -50,8 +50,20 @@ export default function ScanFlow() {
     try {
       const record = await uploadScan.mutateAsync(blob);
       setScanState((prev) => ({ ...prev, scanRecordId: record.id }));
-      setStep('classifying');
-      pollForClassification(record.id);
+
+      if (record.status === 'classified' || record.status === 'manual_required') {
+        const rawResponse = record.aiRawResponse ? JSON.parse(record.aiRawResponse) : null;
+        setScanState((prev) => ({
+          ...prev,
+          aiTypeId: record.aiProposedTypeId,
+          aiConfidence: record.aiConfidence,
+          candidates: rawResponse?.candidates ?? [],
+        }));
+        setStep('confirm');
+      } else {
+        setStep('classifying');
+        pollForClassification(record.id);
+      }
     } catch {
       setStep('camera');
     }
@@ -114,7 +126,7 @@ export default function ScanFlow() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto" />
-          <p className="mt-4 text-gray-600">Foto uploaden...</p>
+          <p className="mt-4 text-gray-600">Foto analyseren...</p>
         </div>
       </div>
     );

@@ -36,21 +36,31 @@ export function useCamera() {
   }, []);
 
   const capture = useCallback((): Promise<Blob | null> => {
+    const MAX_DIMENSION = 1024;
+
     return new Promise((resolve) => {
       const video = videoRef.current;
       if (!video) { resolve(null); return; }
 
+      let w = video.videoWidth;
+      let h = video.videoHeight;
+      if (w > MAX_DIMENSION || h > MAX_DIMENSION) {
+        const scale = MAX_DIMENSION / Math.max(w, h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+
       const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      canvas.width = w;
+      canvas.height = h;
       const ctx = canvas.getContext('2d');
       if (!ctx) { resolve(null); return; }
 
-      ctx.drawImage(video, 0, 0);
+      ctx.drawImage(video, 0, 0, w, h);
       canvas.toBlob(
         (blob) => resolve(blob),
         'image/jpeg',
-        0.85,
+        0.82,
       );
     });
   }, []);

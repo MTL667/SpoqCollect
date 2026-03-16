@@ -2,6 +2,8 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import { prisma } from '../lib/prisma.js';
 import { upload } from '../middleware/upload.js';
 import { movePhoto, getPhotoAbsolutePath } from '../services/storage.js';
+import { classifyPhoto } from '../services/ai-classifier.js';
+import { logger } from '../lib/logger.js';
 
 export const scansRouter = Router();
 
@@ -11,6 +13,7 @@ scansRouter.post('/:sessionId/scans', upload.single('photo'), async (req: Reques
 
     const session = await prisma.inventorySession.findUnique({
       where: { id: sessionId },
+      include: { buildingType: true },
     });
 
     if (!session) {
@@ -44,19 +47,49 @@ scansRouter.post('/:sessionId/scans', upload.single('photo'), async (req: Reques
 
     const photoPath = movePhoto(req.file.path, sessionId, scanRecord.id);
 
-    const updated = await prisma.scanRecord.update({
+    await prisma.scanRecord.update({
       where: { id: scanRecord.id },
       data: { photoPath },
     });
 
-    await prisma.scanJob.create({
-      data: {
-        scanRecordId: scanRecord.id,
-        status: 'pending',
-      },
-    });
+    // Try direct classification — skip the queue for speed
+    try {
+      const applicableTypes = await prisma.objectType.findMany({
+        where: {
+          active: true,
+          buildingTypes: { some: { buildingTypeId: session.buildingTypeId } },
+        },
+      });
 
-    res.status(201).json({ data: updated });
+      const result = await classifyPhoto(
+        getPhotoAbsolutePath(photoPath),
+        session.buildingType.nameNl,
+        applicableTypes,
+      );
+
+      const classified = await prisma.scanRecord.update({
+        where: { id: scanRecord.id },
+        data: {
+          aiProposedTypeId: result.typeId,
+          aiConfidence: result.confidence,
+          aiRawResponse: JSON.stringify(result),
+          status: 'classified',
+        },
+      });
+
+      logger.info({ scanId: scanRecord.id, typeId: result.typeId, confidence: result.confidence }, 'Direct classification succeeded');
+      res.status(201).json({ data: classified });
+    } catch (classifyErr) {
+      // Classification failed — fall back to queue for retry
+      logger.warn({ scanId: scanRecord.id, error: classifyErr instanceof Error ? classifyErr.message : String(classifyErr) }, 'Direct classification failed, queuing for retry');
+
+      await prisma.scanJob.create({
+        data: { scanRecordId: scanRecord.id, status: 'pending' },
+      });
+
+      const pending = await prisma.scanRecord.findUnique({ where: { id: scanRecord.id } });
+      res.status(201).json({ data: pending });
+    }
   } catch (error) {
     next(error);
   }
