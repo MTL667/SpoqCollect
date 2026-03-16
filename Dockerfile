@@ -9,7 +9,6 @@ RUN npm ci
 FROM node:22-alpine AS client-build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/client/node_modules ./client/node_modules
 COPY package.json ./
 COPY client/ ./client/
 COPY shared/ ./shared/
@@ -18,7 +17,6 @@ RUN npm run build:client
 FROM node:22-alpine AS server-build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/server/node_modules ./server/node_modules
 COPY package.json ./
 COPY server/ ./server/
 COPY shared/ ./shared/
@@ -30,7 +28,6 @@ FROM node:22-alpine
 WORKDIR /app
 RUN apk add --no-cache tini
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/server/node_modules ./server/node_modules
 COPY --from=client-build /app/client/dist ./public
 COPY --from=server-build /app/server/dist ./server/dist
 COPY --from=server-build /app/server/src/generated ./server/src/generated
