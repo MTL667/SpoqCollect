@@ -128,8 +128,8 @@ scansRouter.get('/:id/status', async (req: Request, res: Response, next: NextFun
   }
 });
 
-scansRouter.get('/photo/*', (req: Request, res: Response) => {
-  const photoPath = req.params[0] as string;
+scansRouter.get('/photo/:path+', (req: Request, res: Response) => {
+  const photoPath = (req.params as Record<string, string>).path;
   const filePath = getPhotoAbsolutePath(photoPath);
   res.sendFile(filePath, (err) => {
     if (err) {
