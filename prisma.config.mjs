@@ -2,9 +2,9 @@ import { defineConfig } from 'prisma/config';
 
 export default defineConfig({
   earlyAccess: true,
-  schema: './schema.prisma',
+  schema: './prisma/schema.prisma',
   migrate: {
-    schema: './schema.prisma',
+    schema: './prisma/schema.prisma',
   },
   datasource: {
     url: process.env.DATABASE_URL,

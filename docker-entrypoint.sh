@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-echo "Running database migrations..."
-npx prisma migrate deploy --schema=prisma/schema.prisma 2>&1 || echo "Warning: migrations failed or no pending migrations"
+echo "Pushing database schema..."
+npx prisma db push --skip-generate --accept-data-loss 2>&1 || echo "Warning: schema push failed"
 
 echo "Starting server..."
 exec node server/dist/server.js
