@@ -28,8 +28,8 @@ app.use('/api/auth', authRouter);
 app.use('/api/object-types', objectTypesRouter);
 app.use('/api/building-types', buildingTypesRouter);
 app.use('/api/sessions', sessionsRouter);
+app.use('/api/sessions', scansRouter);
 app.use('/api/scans', scansRouter);
-app.use('/api/photos', scansRouter);
 app.use('/api/sessions', exportsRouter);
 
 const publicDir = path.resolve(__dirname, '../../public');
