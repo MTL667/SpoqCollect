@@ -32,10 +32,11 @@ app.use('/api/scans', scansRouter);
 app.use('/api/photos', scansRouter);
 app.use('/api/sessions', exportsRouter);
 
+const publicDir = path.resolve(__dirname, '../../public');
 if (config.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../public')));
-  app.get('*', (_req, res) => {
-    res.sendFile(path.join(__dirname, '../public/index.html'));
+  app.use(express.static(publicDir));
+  app.get('/{*splat}', (_req, res) => {
+    res.sendFile(path.join(publicDir, 'index.html'));
   });
 }
 
