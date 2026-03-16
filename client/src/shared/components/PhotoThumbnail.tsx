@@ -20,7 +20,7 @@ export default function PhotoThumbnail({ photoPath, size = 48 }: PhotoThumbnailP
 
   return (
     <img
-      src={`/api/photos/${encodeURIComponent(photoPath)}`}
+      src={`/api/scans/photo/${photoPath}`}
       alt="Scan"
       className="rounded object-cover"
       style={{ width: size, height: size }}

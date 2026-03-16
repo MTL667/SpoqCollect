@@ -27,6 +27,7 @@ RUN npm run build:server
 FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production
+ENV STORAGE_PATH=/data/photos
 RUN apk add --no-cache tini
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=client-build /app/client/dist ./public
