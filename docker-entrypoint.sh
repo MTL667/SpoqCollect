@@ -14,5 +14,9 @@ npx prisma db push --accept-data-loss 2>&1
 echo "=== Schema push complete ==="
 
 echo ""
+echo "=== Running seed ==="
+npx tsx prisma/seed.ts 2>&1 || echo "WARNING: Seed failed (may already be seeded)"
+
+echo ""
 echo "=== Starting server ==="
 exec node server/dist/server.js
