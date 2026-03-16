@@ -128,9 +128,9 @@ scansRouter.get('/:id/status', async (req: Request, res: Response, next: NextFun
   }
 });
 
-scansRouter.get('/photo/:path+', (req: Request, res: Response) => {
-  const photoPath = (req.params as Record<string, string>).path;
-  const filePath = getPhotoAbsolutePath(photoPath);
+scansRouter.get('/photo/:sessionId/:filename', (req: Request, res: Response) => {
+  const { sessionId, filename } = req.params as Record<string, string>;
+  const filePath = getPhotoAbsolutePath(`${sessionId}/${filename}`);
   res.sendFile(filePath, (err) => {
     if (err) {
       res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Photo not found' } });

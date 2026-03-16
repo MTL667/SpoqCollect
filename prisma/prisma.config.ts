@@ -7,4 +7,7 @@ export default defineConfig({
   migrate: {
     schema: './schema.prisma',
   },
+  datasource: {
+    url: process.env.DATABASE_URL!,
+  },
 });
