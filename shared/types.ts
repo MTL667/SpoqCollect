@@ -41,7 +41,12 @@ export interface ObjectTypeDTO {
 export interface InventorySessionDTO {
   id: string;
   inspectorId: string;
-  clientAddress: string;
+  clientName: string;
+  street: string;
+  number: string;
+  bus: string | null;
+  postalCode: string;
+  city: string;
   buildingTypeId: string;
   status: string;
   createdAt: string;
@@ -75,7 +80,12 @@ export interface LoginResponse {
 }
 
 export interface CreateSessionRequest {
-  clientAddress: string;
+  clientName: string;
+  street: string;
+  number: string;
+  bus?: string;
+  postalCode: string;
+  city: string;
   buildingTypeId: string;
 }
 

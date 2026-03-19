@@ -9,7 +9,12 @@ interface BuildingTypeSummary {
 
 interface SessionListItem {
   id: string;
-  clientAddress: string;
+  clientName: string;
+  street: string;
+  number: string;
+  bus: string | null;
+  postalCode: string;
+  city: string;
   status: string;
   createdAt: string;
   buildingType: BuildingTypeSummary;
@@ -19,23 +24,46 @@ interface SessionListItem {
 interface ScanRecordItem {
   id: string;
   photoPath: string;
+  floorId: string;
   confirmedTypeId: string | null;
   confirmedType: { nameNl: string } | null;
   createdAt: string;
   status: string;
 }
 
+interface FloorItem {
+  id: string;
+  name: string;
+  sortOrder: number;
+  scanRecords: ScanRecordItem[];
+}
+
+interface LocationItem {
+  id: string;
+  name: string;
+  sortOrder: number;
+  floors: FloorItem[];
+}
+
 interface SessionDetail {
   id: string;
-  clientAddress: string;
+  clientName: string;
+  street: string;
+  number: string;
+  bus: string | null;
+  postalCode: string;
+  city: string;
   status: string;
   createdAt: string;
   completedAt: string | null;
   buildingType: BuildingTypeSummary;
   buildingTypeId: string;
   inspector: { id: string; name: string };
+  locations: LocationItem[];
   scanRecords: ScanRecordItem[];
 }
+
+export type { SessionListItem, SessionDetail, LocationItem, FloorItem, ScanRecordItem };
 
 export function useSessions() {
   return useQuery({
@@ -52,10 +80,20 @@ export function useSession(sessionId: string) {
   });
 }
 
+interface CreateSessionData {
+  clientName: string;
+  street: string;
+  number: string;
+  bus?: string;
+  postalCode: string;
+  city: string;
+  buildingTypeId: string;
+}
+
 export function useCreateSession() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { clientAddress: string; buildingTypeId: string }) =>
+    mutationFn: (data: CreateSessionData) =>
       apiClient<SessionDetail>('/api/sessions', {
         method: 'POST',
         body: JSON.stringify(data),
@@ -89,4 +127,39 @@ export function useBuildingTypes() {
       apiClient<Array<{ id: string; nameNl: string; nameFr: string; active: boolean }>>('/api/building-types'),
     staleTime: Infinity,
   });
+}
+
+export function useCreateLocation(sessionId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) =>
+      apiClient<LocationItem>(`/api/sessions/${sessionId}/locations`, {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sessions', sessionId] });
+    },
+  });
+}
+
+export function useCreateFloor(sessionId: string, locationId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) =>
+      apiClient(`/api/sessions/${sessionId}/locations/${locationId}/floors`, {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sessions', sessionId] });
+    },
+  });
+}
+
+export function formatAddress(session: { street: string; number: string; bus: string | null; postalCode: string; city: string }) {
+  const addr = `${session.street} ${session.number}${session.bus ? ` bus ${session.bus}` : ''}`;
+  return `${addr}, ${session.postalCode} ${session.city}`;
 }

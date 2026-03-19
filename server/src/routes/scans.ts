@@ -36,9 +36,16 @@ scansRouter.post('/:sessionId/scans', upload.single('photo'), async (req: Reques
       return;
     }
 
+    const floorId = req.body.floorId as string | undefined;
+    if (!floorId) {
+      res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'floorId is required' } });
+      return;
+    }
+
     const scanRecord = await prisma.scanRecord.create({
       data: {
         sessionId,
+        floorId,
         inspectorId: req.inspector!.inspectorId,
         photoPath: 'temp',
         status: 'pending',

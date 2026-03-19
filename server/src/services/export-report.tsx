@@ -12,7 +12,9 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 12, color: '#666', marginBottom: 4 },
   meta: { fontSize: 9, color: '#888', marginBottom: 2 },
   divider: { borderBottom: '1px solid #ccc', marginVertical: 10 },
-  recordRow: { flexDirection: 'row', marginBottom: 8, borderBottom: '0.5px solid #eee', paddingBottom: 6 },
+  locationHeader: { fontSize: 13, fontWeight: 'bold', marginTop: 14, marginBottom: 4, color: '#222' },
+  floorHeader: { fontSize: 11, fontWeight: 'bold', marginTop: 8, marginBottom: 4, color: '#444', paddingLeft: 8 },
+  recordRow: { flexDirection: 'row', marginBottom: 8, borderBottom: '0.5px solid #eee', paddingBottom: 6, paddingLeft: 16 },
   thumbnail: { width: 60, height: 60, objectFit: 'cover', marginRight: 10, borderRadius: 2 },
   recordInfo: { flex: 1, justifyContent: 'center' },
   recordName: { fontSize: 11, fontWeight: 'bold' },
@@ -20,6 +22,14 @@ const styles = StyleSheet.create({
   recordMeta: { fontSize: 8, color: '#888', marginTop: 2 },
   footer: { position: 'absolute', bottom: 20, left: 30, right: 30, fontSize: 8, color: '#aaa', textAlign: 'center' },
 });
+
+function getPhotoPath(relativePath: string): string {
+  return path.join(config.STORAGE_PATH, relativePath);
+}
+
+function formatAddr(s: { street: string; number: string; bus: string | null; postalCode: string; city: string }) {
+  return `${s.street} ${s.number}${s.bus ? ` bus ${s.bus}` : ''}, ${s.postalCode} ${s.city}`;
+}
 
 interface ScanData {
   id: string;
@@ -29,74 +39,98 @@ interface ScanData {
   aiConfidence: number | null;
 }
 
+interface FloorData {
+  name: string;
+  scanRecords: ScanData[];
+}
+
+interface LocationData {
+  name: string;
+  floors: FloorData[];
+}
+
 interface SessionData {
-  clientAddress: string;
+  clientName: string;
+  street: string;
+  number: string;
+  bus: string | null;
+  postalCode: string;
+  city: string;
   createdAt: Date;
   completedAt: Date | null;
   buildingType: { nameNl: string; nameFr: string };
   inspector: { name: string };
+  locations: LocationData[];
   scanRecords: ScanData[];
 }
 
-function getPhotoPath(relativePath: string): string {
-  return path.join(config.STORAGE_PATH, relativePath);
-}
-
 function ClientReport({ session }: { session: SessionData }) {
+  const address = formatAddr(session);
+  let globalIndex = 0;
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          <Text style={styles.title}>Inventarisatierapport / Rapport d'inventaire</Text>
-          <Text style={styles.subtitle}>{session.clientAddress}</Text>
+          <Text style={styles.title}>Inventarisatierapport / Rapport d&apos;inventaire</Text>
+          <Text style={styles.subtitle}>{session.clientName}</Text>
+          <Text style={styles.meta}>{address}</Text>
           <Text style={styles.meta}>
-            Gebouwtype / Type de bâtiment: {session.buildingType.nameNl} / {session.buildingType.nameFr}
+            Gebouwtype / Type de b&acirc;timent: {session.buildingType.nameNl} / {session.buildingType.nameFr}
           </Text>
-          <Text style={styles.meta}>
-            Inspecteur: {session.inspector.name}
-          </Text>
+          <Text style={styles.meta}>Inspecteur: {session.inspector.name}</Text>
           <Text style={styles.meta}>
             Datum / Date: {session.createdAt.toLocaleDateString('nl-BE')}
             {session.completedAt ? ` — ${session.completedAt.toLocaleDateString('nl-BE')}` : ''}
           </Text>
           <Text style={styles.meta}>
-            Aantal objecten / Nombre d'objets: {session.scanRecords.length}
+            Aantal objecten / Nombre d&apos;objets: {session.scanRecords.length}
           </Text>
         </View>
 
         <View style={styles.divider} />
 
-        {session.scanRecords.map((record, index) => {
-          const photoAbsPath = getPhotoPath(record.photoPath);
-          const hasPhoto = fs.existsSync(photoAbsPath);
-
-          return (
-            <View key={record.id} style={styles.recordRow} wrap={false}>
-              {hasPhoto ? (
-                <Image src={photoAbsPath} style={styles.thumbnail} />
-              ) : (
-                <View style={[styles.thumbnail, { backgroundColor: '#f0f0f0' }]} />
-              )}
-              <View style={styles.recordInfo}>
-                <Text style={styles.recordName}>
-                  {index + 1}. {record.confirmedType?.nameNl ?? 'Onbekend'}
-                </Text>
-                <Text style={styles.recordNameFr}>
-                  {record.confirmedType?.nameFr ?? 'Inconnu'}
-                </Text>
-                <Text style={styles.recordMeta}>
-                  {record.confirmedType?.heliOmCategory ?? '-'} | {record.createdAt.toLocaleTimeString('nl-BE')}
-                  {record.aiConfidence !== null ? ` | AI: ${Math.round(record.aiConfidence * 100)}%` : ''}
-                </Text>
+        {session.locations.map((loc) => (
+          <View key={loc.name}>
+            <Text style={styles.locationHeader}>{loc.name}</Text>
+            {loc.floors.map((floor) => (
+              <View key={floor.name}>
+                <Text style={styles.floorHeader}>{floor.name}</Text>
+                {floor.scanRecords.map((record) => {
+                  globalIndex++;
+                  const photoAbsPath = getPhotoPath(record.photoPath);
+                  const hasPhoto = fs.existsSync(photoAbsPath);
+                  return (
+                    <View key={record.id} style={styles.recordRow} wrap={false}>
+                      {hasPhoto ? (
+                        <Image src={photoAbsPath} style={styles.thumbnail} />
+                      ) : (
+                        <View style={[styles.thumbnail, { backgroundColor: '#f0f0f0' }]} />
+                      )}
+                      <View style={styles.recordInfo}>
+                        <Text style={styles.recordName}>
+                          {globalIndex}. {record.confirmedType?.nameNl ?? 'Onbekend'}
+                        </Text>
+                        <Text style={styles.recordNameFr}>
+                          {record.confirmedType?.nameFr ?? 'Inconnu'}
+                        </Text>
+                        <Text style={styles.recordMeta}>
+                          {record.confirmedType?.heliOmCategory ?? '-'} | {record.createdAt.toLocaleTimeString('nl-BE')}
+                          {record.aiConfidence !== null ? ` | AI: ${Math.round(record.aiConfidence * 100)}%` : ''}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
               </View>
-            </View>
-          );
-        })}
+            ))}
+          </View>
+        ))}
 
         <Text
           style={styles.footer}
           render={({ pageNumber, totalPages }) =>
-            `InventariSpoq — ${session.clientAddress} — Pagina ${pageNumber} / ${totalPages}`
+            `InventariSpoq — ${session.clientName} — Pagina ${pageNumber} / ${totalPages}`
           }
           fixed
         />
@@ -111,6 +145,21 @@ export async function generateClientReport(sessionId: string): Promise<Buffer> {
     include: {
       buildingType: true,
       inspector: true,
+      locations: {
+        orderBy: { sortOrder: 'asc' },
+        include: {
+          floors: {
+            orderBy: { sortOrder: 'asc' },
+            include: {
+              scanRecords: {
+                where: { status: 'confirmed' },
+                include: { confirmedType: true },
+                orderBy: { createdAt: 'asc' },
+              },
+            },
+          },
+        },
+      },
       scanRecords: {
         where: { status: 'confirmed' },
         include: { confirmedType: true },

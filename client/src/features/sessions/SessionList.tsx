@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router';
 import { useAuth } from '../auth/use-auth';
-import { useSessions } from './use-sessions';
+import { useSessions, formatAddress } from './use-sessions';
 
 function StatusBadge({ status }: { status: string }) {
   const isActive = status === 'active';
@@ -58,7 +58,8 @@ export default function SessionList() {
               className="w-full text-left bg-white shadow rounded-lg p-4 hover:bg-gray-50 flex items-center justify-between"
             >
               <div>
-                <p className="font-medium text-gray-900">{s.clientAddress}</p>
+                <p className="font-medium text-gray-900">{s.clientName}</p>
+                <p className="text-sm text-gray-600">{formatAddress(s)}</p>
                 <p className="text-sm text-gray-500">
                   {s.buildingType.nameNl} &middot;{' '}
                   {new Date(s.createdAt).toLocaleDateString('nl-BE')} &middot;{' '}

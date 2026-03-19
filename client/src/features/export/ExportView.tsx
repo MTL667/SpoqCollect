@@ -6,9 +6,9 @@ interface ExportViewProps {
   status: string;
 }
 
-export default function ExportView({ sessionId, clientAddress, status }: ExportViewProps) {
-  const heliExport = useExportHeliOm(sessionId, clientAddress);
-  const reportExport = useExportReport(sessionId, clientAddress);
+export default function ExportView({ sessionId, clientAddress: label, status }: ExportViewProps) {
+  const heliExport = useExportHeliOm(sessionId, label);
+  const reportExport = useExportReport(sessionId, label);
 
   if (status !== 'completed') return null;
 

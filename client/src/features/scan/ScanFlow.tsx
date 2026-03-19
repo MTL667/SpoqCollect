@@ -4,12 +4,14 @@ import { useQuery } from '@tanstack/react-query';
 import CameraView from './CameraView';
 import ClassificationResult from './ClassificationResult';
 import { useUploadScan, useConfirmScan } from './use-scan';
-import { useSession } from '../sessions/use-sessions';
+import { useSession, useCreateLocation, useCreateFloor } from '../sessions/use-sessions';
 import { apiClient } from '../../lib/api-client';
+import type { LocationItem } from '../sessions/use-sessions';
 
-type FlowStep = 'camera' | 'uploading' | 'classifying' | 'confirm';
+type FlowStep = 'pick-floor' | 'camera' | 'uploading' | 'classifying' | 'confirm';
 
 interface ScanState {
+  floorId: string | null;
   photoBlob: Blob | null;
   scanRecordId: string | null;
   aiTypeId: string | null;
@@ -20,12 +22,13 @@ interface ScanState {
 export default function ScanFlow() {
   const { id: sessionId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { data: session } = useSession(sessionId!);
+  const { data: session, refetch: refetchSession } = useSession(sessionId!);
   const uploadScan = useUploadScan(sessionId!);
   const confirmScan = useConfirmScan();
 
-  const [step, setStep] = useState<FlowStep>('camera');
+  const [step, setStep] = useState<FlowStep>('pick-floor');
   const [scanState, setScanState] = useState<ScanState>({
+    floorId: null,
     photoBlob: null,
     scanRecordId: null,
     aiTypeId: null,
@@ -43,12 +46,17 @@ export default function ScanFlow() {
     staleTime: Infinity,
   });
 
+  function handleFloorSelected(floorId: string) {
+    setScanState((prev) => ({ ...prev, floorId }));
+    setStep('camera');
+  }
+
   async function handleCapture(blob: Blob) {
     setScanState((prev) => ({ ...prev, photoBlob: blob }));
     setStep('uploading');
 
     try {
-      const record = await uploadScan.mutateAsync(blob);
+      const record = await uploadScan.mutateAsync({ photoBlob: blob, floorId: scanState.floorId! });
       setScanState((prev) => ({ ...prev, scanRecordId: record.id }));
 
       if (record.status === 'classified' || record.status === 'manual_required') {
@@ -105,10 +113,29 @@ export default function ScanFlow() {
       { scanId: scanState.scanRecordId, confirmedTypeId: typeId },
       {
         onSuccess: () => {
-          setScanState({ photoBlob: null, scanRecordId: null, aiTypeId: null, aiConfidence: null, candidates: [] });
+          setScanState((prev) => ({
+            ...prev,
+            photoBlob: null,
+            scanRecordId: null,
+            aiTypeId: null,
+            aiConfidence: null,
+            candidates: [],
+          }));
           setStep('camera');
         },
       },
+    );
+  }
+
+  if (step === 'pick-floor') {
+    return (
+      <FloorPicker
+        sessionId={sessionId!}
+        locations={session?.locations ?? []}
+        onSelect={handleFloorSelected}
+        onCancel={() => navigate(`/sessions/${sessionId}`)}
+        onLocationsChanged={() => refetchSession()}
+      />
     );
   }
 
@@ -116,7 +143,7 @@ export default function ScanFlow() {
     return (
       <CameraView
         onCapture={handleCapture}
-        onCancel={() => navigate(`/sessions/${sessionId}`)}
+        onCancel={() => setStep('pick-floor')}
       />
     );
   }
@@ -170,6 +197,158 @@ export default function ScanFlow() {
         onConfirm={handleConfirm}
         isLoading={confirmScan.isPending}
       />
+    </div>
+  );
+}
+
+function FloorPicker({
+  sessionId,
+  locations,
+  onSelect,
+  onCancel,
+  onLocationsChanged,
+}: {
+  sessionId: string;
+  locations: LocationItem[];
+  onSelect: (floorId: string) => void;
+  onCancel: () => void;
+  onLocationsChanged: () => void;
+}) {
+  const createLocation = useCreateLocation(sessionId);
+  const [newLocName, setNewLocName] = useState('');
+  const [addingFloorForLoc, setAddingFloorForLoc] = useState<string | null>(null);
+
+  function handleAddLocation() {
+    if (!newLocName.trim()) return;
+    createLocation.mutate(newLocName.trim(), {
+      onSuccess: () => {
+        setNewLocName('');
+        onLocationsChanged();
+      },
+    });
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-bold text-gray-900">Kies locatie & verdieping</h2>
+        <button onClick={onCancel} className="text-blue-700 text-sm hover:underline">
+          Terug
+        </button>
+      </div>
+
+      {locations.length === 0 && (
+        <p className="text-gray-500 text-sm mb-4">Voeg eerst een locatie toe</p>
+      )}
+
+      <div className="space-y-3">
+        {locations.map((loc) => (
+          <div key={loc.id} className="bg-white rounded-lg shadow">
+            <div className="px-4 py-3 font-semibold text-gray-900 border-b border-gray-100">
+              {loc.name}
+            </div>
+            {loc.floors.map((floor) => (
+              <button
+                key={floor.id}
+                onClick={() => onSelect(floor.id)}
+                className="w-full text-left px-4 py-3 border-t border-gray-50 hover:bg-blue-50 flex items-center justify-between"
+              >
+                <span className="text-gray-800">{floor.name}</span>
+                <span className="text-blue-600 text-sm">Scan &rarr;</span>
+              </button>
+            ))}
+            {loc.floors.length === 0 && (
+              <p className="px-4 py-2 text-xs text-gray-400 italic">Nog geen verdiepingen</p>
+            )}
+            <AddFloorInline
+              sessionId={sessionId}
+              locationId={loc.id}
+              isAdding={addingFloorForLoc === loc.id}
+              onStartAdding={() => setAddingFloorForLoc(loc.id)}
+              onDone={() => { setAddingFloorForLoc(null); onLocationsChanged(); }}
+            />
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 bg-white rounded-lg shadow p-4">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newLocName}
+            onChange={(e) => setNewLocName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddLocation()}
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Nieuwe locatie (bv. Hoofdgebouw)..."
+          />
+          <button
+            onClick={handleAddLocation}
+            disabled={createLocation.isPending || !newLocName.trim()}
+            className="px-4 py-2 bg-blue-700 text-white rounded-md hover:bg-blue-800 disabled:opacity-50"
+          >
+            +
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddFloorInline({
+  sessionId,
+  locationId,
+  isAdding,
+  onStartAdding,
+  onDone,
+}: {
+  sessionId: string;
+  locationId: string;
+  isAdding: boolean;
+  onStartAdding: () => void;
+  onDone: () => void;
+}) {
+  const createFloor = useCreateFloor(sessionId, locationId);
+  const [name, setName] = useState('');
+
+  function handleAdd() {
+    if (!name.trim()) return;
+    createFloor.mutate(name.trim(), {
+      onSuccess: () => {
+        setName('');
+        onDone();
+      },
+    });
+  }
+
+  if (!isAdding) {
+    return (
+      <button
+        onClick={onStartAdding}
+        className="w-full px-4 py-2 text-sm text-blue-600 hover:text-blue-700 border-t border-gray-100"
+      >
+        + Verdieping
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex gap-2 px-4 py-2 border-t border-gray-100">
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+        className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="bv. Gelijkvloers, V1, Kelder..."
+        autoFocus
+      />
+      <button
+        onClick={handleAdd}
+        disabled={createFloor.isPending}
+        className="px-3 py-1.5 text-sm bg-blue-700 text-white rounded-md disabled:opacity-50"
+      >
+        OK
+      </button>
     </div>
   );
 }

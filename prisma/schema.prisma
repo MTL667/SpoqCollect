@@ -56,21 +56,52 @@ model ObjectTypeBuildingType {
 model InventorySession {
   id             String       @id @default(cuid())
   inspectorId    String       @map("inspector_id")
-  clientAddress  String       @map("client_address")
+  clientName     String       @map("client_name")
+  street         String
+  number         String
+  bus            String?
+  postalCode     String       @map("postal_code")
+  city           String
   buildingTypeId String       @map("building_type_id")
   status         String       @default("active")
   createdAt      DateTime     @default(now()) @map("created_at")
   completedAt    DateTime?    @map("completed_at")
   inspector      Inspector    @relation(fields: [inspectorId], references: [id])
   buildingType   BuildingType @relation(fields: [buildingTypeId], references: [id])
+  locations      Location[]
   scanRecords    ScanRecord[]
 
   @@map("inventory_sessions")
 }
 
+model Location {
+  id        String           @id @default(cuid())
+  sessionId String           @map("session_id")
+  name      String
+  sortOrder Int              @default(0) @map("sort_order")
+  createdAt DateTime         @default(now()) @map("created_at")
+  session   InventorySession @relation(fields: [sessionId], references: [id])
+  floors    Floor[]
+
+  @@map("locations")
+}
+
+model Floor {
+  id          String       @id @default(cuid())
+  locationId  String       @map("location_id")
+  name        String
+  sortOrder   Int          @default(0) @map("sort_order")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  location    Location     @relation(fields: [locationId], references: [id])
+  scanRecords ScanRecord[]
+
+  @@map("floors")
+}
+
 model ScanRecord {
   id               String            @id @default(cuid())
   sessionId        String            @map("session_id")
+  floorId          String            @map("floor_id")
   inspectorId      String            @map("inspector_id")
   photoPath        String            @map("photo_path")
   aiProposedTypeId String?           @map("ai_proposed_type_id")
@@ -81,6 +112,7 @@ model ScanRecord {
   createdAt        DateTime          @default(now()) @map("created_at")
   confirmedAt      DateTime?         @map("confirmed_at")
   session          InventorySession  @relation(fields: [sessionId], references: [id])
+  floor            Floor             @relation(fields: [floorId], references: [id])
   inspector        Inspector         @relation(fields: [inspectorId], references: [id])
   confirmedType    ObjectType?       @relation(fields: [confirmedTypeId], references: [id])
   scanJob          ScanJob?

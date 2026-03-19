@@ -30,9 +30,9 @@ exportsRouter.post('/:id/export/heli-om', async (req: Request, res: Response, ne
 
     const buffer = await generateHeliOmExcel(sessionId);
 
-    const sanitizedAddress = session.clientAddress.replace(/[^a-zA-Z0-9 -]/g, '').replace(/\s+/g, '-');
+    const sanitizedName = session.clientName.replace(/[^a-zA-Z0-9 -]/g, '').replace(/\s+/g, '-');
     const dateStr = new Date().toISOString().split('T')[0];
-    const filename = `heli-om-${sanitizedAddress}-${dateStr}.xlsx`;
+    const filename = `heli-om-${sanitizedName}-${dateStr}.xlsx`;
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -67,9 +67,9 @@ exportsRouter.post('/:id/export/report', async (req: Request, res: Response, nex
 
     const buffer = await generateClientReport(sessionId);
 
-    const sanitizedAddress = session.clientAddress.replace(/[^a-zA-Z0-9 -]/g, '').replace(/\s+/g, '-');
+    const sanitizedName = session.clientName.replace(/[^a-zA-Z0-9 -]/g, '').replace(/\s+/g, '-');
     const dateStr = new Date().toISOString().split('T')[0];
-    const filename = `rapport-${sanitizedAddress}-${dateStr}.pdf`;
+    const filename = `rapport-${sanitizedName}-${dateStr}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

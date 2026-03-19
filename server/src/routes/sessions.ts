@@ -3,16 +3,23 @@ import { prisma } from '../lib/prisma.js';
 
 export const sessionsRouter = Router();
 
+interface CreateSessionBody {
+  clientName?: string;
+  street?: string;
+  number?: string;
+  bus?: string;
+  postalCode?: string;
+  city?: string;
+  buildingTypeId?: string;
+}
+
 sessionsRouter.post('/', async (req, res, next) => {
   try {
-    const { clientAddress, buildingTypeId } = req.body as {
-      clientAddress?: string;
-      buildingTypeId?: string;
-    };
+    const { clientName, street, number, bus, postalCode, city, buildingTypeId } = req.body as CreateSessionBody;
 
-    if (!clientAddress?.trim() || !buildingTypeId) {
+    if (!clientName?.trim() || !street?.trim() || !number?.trim() || !postalCode?.trim() || !city?.trim() || !buildingTypeId) {
       res.status(400).json({
-        error: { code: 'VALIDATION_ERROR', message: 'Client address and building type are required' },
+        error: { code: 'VALIDATION_ERROR', message: 'Naam, straat, nummer, postcode, plaats en gebouwtype zijn verplicht' },
       });
       return;
     }
@@ -20,7 +27,12 @@ sessionsRouter.post('/', async (req, res, next) => {
     const session = await prisma.inventorySession.create({
       data: {
         inspectorId: req.inspector!.inspectorId,
-        clientAddress: clientAddress.trim(),
+        clientName: clientName.trim(),
+        street: street.trim(),
+        number: number.trim(),
+        bus: bus?.trim() || null,
+        postalCode: postalCode.trim(),
+        city: city.trim(),
         buildingTypeId,
       },
       include: { buildingType: true },
@@ -56,10 +68,22 @@ sessionsRouter.get('/:id', async (req, res, next) => {
       include: {
         buildingType: { select: { id: true, nameNl: true } },
         inspector: { select: { id: true, name: true } },
-        scanRecords: {
+        locations: {
+          orderBy: { sortOrder: 'asc' },
           include: {
-            confirmedType: { select: { nameNl: true } },
+            floors: {
+              orderBy: { sortOrder: 'asc' },
+              include: {
+                scanRecords: {
+                  include: { confirmedType: { select: { nameNl: true } } },
+                  orderBy: { createdAt: 'asc' },
+                },
+              },
+            },
           },
+        },
+        scanRecords: {
+          include: { confirmedType: { select: { nameNl: true } } },
           orderBy: { createdAt: 'desc' },
         },
       },

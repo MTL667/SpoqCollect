@@ -4,9 +4,10 @@ export function useUploadScan(sessionId: string) {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async (photoBlob: Blob) => {
+    mutationFn: async ({ photoBlob, floorId }: { photoBlob: Blob; floorId: string }) => {
       const formData = new FormData();
       formData.append('photo', photoBlob, 'scan.jpg');
+      formData.append('floorId', floorId);
 
       const token = localStorage.getItem('inventarispoq_auth');
       const parsed = token ? JSON.parse(token) : null;
