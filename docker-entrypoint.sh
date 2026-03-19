@@ -10,7 +10,12 @@ ls -la /app/
 
 echo ""
 echo "=== Pushing database schema ==="
-npx prisma db push --force-reset 2>&1
+if [ "$FORCE_DB_RESET" = "true" ]; then
+  echo "FORCE_DB_RESET=true → dropping and recreating database"
+  npx prisma db push --force-reset 2>&1
+else
+  npx prisma db push --accept-data-loss 2>&1
+fi
 echo "=== Schema push complete ==="
 
 echo ""
