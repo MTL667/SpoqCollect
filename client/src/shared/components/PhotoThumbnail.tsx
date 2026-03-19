@@ -1,5 +1,5 @@
 interface PhotoThumbnailProps {
-  photoPath: string;
+  photoPath: string | null;
   size?: number;
 }
 

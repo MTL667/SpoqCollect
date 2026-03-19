@@ -23,7 +23,7 @@ interface SessionListItem {
 
 interface ScanRecordItem {
   id: string;
-  photoPath: string;
+  photoPath: string | null;
   floorId: string;
   confirmedTypeId: string | null;
   confirmedType: { nameNl: string } | null;

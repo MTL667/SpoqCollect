@@ -67,6 +67,45 @@ export function useUpdateQuantity() {
   });
 }
 
+export function useManualAdd(sessionId: string) {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ floorId, confirmedTypeId, quantity, photoBlob }: {
+      floorId: string;
+      confirmedTypeId: string;
+      quantity: number;
+      photoBlob?: Blob;
+    }) => {
+      const formData = new FormData();
+      formData.append('floorId', floorId);
+      formData.append('confirmedTypeId', confirmedTypeId);
+      formData.append('quantity', String(quantity));
+      if (photoBlob) formData.append('photo', photoBlob, 'manual.jpg');
+
+      const token = localStorage.getItem('inventarispoq_auth');
+      const parsed = token ? JSON.parse(token) : null;
+
+      const res = await fetch(`/api/sessions/${sessionId}/scans/manual`, {
+        method: 'POST',
+        headers: parsed?.token ? { Authorization: `Bearer ${parsed.token}` } : {},
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message ?? 'Add failed');
+      }
+
+      const json = await res.json();
+      return json.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sessions', sessionId] });
+    },
+  });
+}
+
 export function useConfirmScan() {
   const qc = useQueryClient();
 

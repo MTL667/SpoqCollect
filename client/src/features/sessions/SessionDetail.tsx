@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router';
+import { useQuery } from '@tanstack/react-query';
 import { useSession, useCompleteSession, useReopenSession, useCreateLocation, useCreateFloor, formatAddress } from './use-sessions';
-import type { LocationItem, FloorItem } from './use-sessions';
-import { useUpdateQuantity } from '../scan/use-scan';
+import type { LocationItem, FloorItem, ScanRecordItem } from './use-sessions';
+import { useUpdateQuantity, useManualAdd } from '../scan/use-scan';
+import { apiClient } from '../../lib/api-client';
 import PhotoThumbnail from '../../shared/components/PhotoThumbnail';
 import ConfirmDialog from '../../shared/components/ConfirmDialog';
 import ExportView from '../export/ExportView';
+import CameraView from '../scan/CameraView';
 
 export default function SessionDetail() {
   const { id } = useParams<{ id: string }>();
@@ -165,7 +168,13 @@ function LocationSection({ location, sessionId, isActive }: { location: Location
       </div>
 
       {location.floors.map((floor) => (
-        <FloorSection key={floor.id} floor={floor} isActive={isActive} />
+        <FloorSection
+          key={floor.id}
+          floor={floor}
+          isActive={isActive}
+          sessionId={sessionId}
+          allRecordsInLocation={location.floors.flatMap((f) => f.scanRecords)}
+        />
       ))}
 
       {location.floors.length === 0 && (
@@ -213,8 +222,35 @@ function LocationSection({ location, sessionId, isActive }: { location: Location
   );
 }
 
-function FloorSection({ floor, isActive }: { floor: FloorItem; isActive: boolean }) {
+function FloorSection({ floor, isActive, sessionId, allRecordsInLocation }: {
+  floor: FloorItem;
+  isActive: boolean;
+  sessionId: string;
+  allRecordsInLocation: ScanRecordItem[];
+}) {
   const updateQuantity = useUpdateQuantity();
+  const manualAdd = useManualAdd(sessionId);
+  const [showManualAdd, setShowManualAdd] = useState(false);
+  const [manualStep, setManualStep] = useState<'pick-type' | 'camera' | 'quantity'>('pick-type');
+  const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
+  const [manualQty, setManualQty] = useState(1);
+  const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
+  const [search, setSearch] = useState('');
+
+  const { data: objectTypes } = useQuery({
+    queryKey: ['object-types-all'],
+    queryFn: () => apiClient<Array<{ id: string; nameNl: string }>>('/api/object-types'),
+    staleTime: Infinity,
+    enabled: showManualAdd,
+  });
+
+  const typesInLocation = useMemo(() => {
+    const ids = new Set<string>();
+    for (const r of allRecordsInLocation) {
+      if (r.confirmedTypeId) ids.add(r.confirmedTypeId);
+    }
+    return ids;
+  }, [allRecordsInLocation]);
 
   function handleQuantityChange(scanId: string, currentQty: number, delta: number) {
     const newQty = Math.max(1, currentQty + delta);
@@ -222,65 +258,192 @@ function FloorSection({ floor, isActive }: { floor: FloorItem; isActive: boolean
     updateQuantity.mutate({ scanId, quantity: newQty });
   }
 
+  function handleTypeSelected(typeId: string) {
+    setSelectedTypeId(typeId);
+    if (typesInLocation.has(typeId)) {
+      setManualStep('quantity');
+    } else {
+      setManualStep('camera');
+    }
+  }
+
+  function handlePhotoTaken(blob: Blob) {
+    setPhotoBlob(blob);
+    setManualStep('quantity');
+  }
+
+  function handleManualConfirm() {
+    if (!selectedTypeId) return;
+    manualAdd.mutate(
+      { floorId: floor.id, confirmedTypeId: selectedTypeId, quantity: manualQty, photoBlob: photoBlob ?? undefined },
+      {
+        onSuccess: () => {
+          setShowManualAdd(false);
+          setManualStep('pick-type');
+          setSelectedTypeId(null);
+          setManualQty(1);
+          setPhotoBlob(null);
+          setSearch('');
+        },
+      },
+    );
+  }
+
+  function cancelManual() {
+    setShowManualAdd(false);
+    setManualStep('pick-type');
+    setSelectedTypeId(null);
+    setManualQty(1);
+    setPhotoBlob(null);
+    setSearch('');
+  }
+
+  const selectedTypeName = objectTypes?.find((t) => t.id === selectedTypeId)?.nameNl;
+
+  if (showManualAdd && manualStep === 'camera') {
+    return <CameraView onCapture={handlePhotoTaken} onCancel={() => setManualStep('pick-type')} />;
+  }
+
+  const filtered = objectTypes
+    ?.filter((t) => t.nameNl.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => a.nameNl.localeCompare(b.nameNl, 'nl')) ?? [];
+
   return (
     <div className="border-t border-gray-50">
       <div className="px-4 py-2 bg-gray-50">
         <h3 className="text-sm font-medium text-gray-700">{floor.name}</h3>
       </div>
-      {floor.scanRecords.length === 0 ? (
+      {floor.scanRecords.length === 0 && !showManualAdd && (
         <div className="px-4 py-2 text-xs text-gray-400 italic">Geen scans</div>
-      ) : (
-        floor.scanRecords.map((record) => (
-          <div
-            key={record.id}
-            className="flex items-center gap-3 px-4 py-2 border-t border-gray-50"
-          >
-            <PhotoThumbnail photoPath={record.photoPath} size={40} />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">
-                {record.confirmedType?.nameNl ?? 'Wacht op classificatie...'}
-              </p>
-              <p className="text-xs text-gray-500">
-                {new Date(record.createdAt).toLocaleTimeString('nl-BE')}
-              </p>
+      )}
+      {floor.scanRecords.map((record) => (
+        <div
+          key={record.id}
+          className="flex items-center gap-3 px-4 py-2 border-t border-gray-50"
+        >
+          <PhotoThumbnail photoPath={record.photoPath} size={40} />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-900 truncate">
+              {record.confirmedType?.nameNl ?? 'Wacht op classificatie...'}
+            </p>
+            <p className="text-xs text-gray-500">
+              {new Date(record.createdAt).toLocaleTimeString('nl-BE')}
+            </p>
+          </div>
+          {isActive && record.status === 'confirmed' ? (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => handleQuantityChange(record.id, record.quantity, -1)}
+                disabled={record.quantity <= 1}
+                className="w-7 h-7 rounded-full bg-gray-100 text-sm font-bold text-gray-600 hover:bg-gray-200 disabled:opacity-30"
+              >
+                −
+              </button>
+              <span className="text-sm font-bold text-gray-900 w-5 text-center tabular-nums">{record.quantity}</span>
+              <button
+                onClick={() => handleQuantityChange(record.id, record.quantity, 1)}
+                className="w-7 h-7 rounded-full bg-blue-100 text-sm font-bold text-blue-700 hover:bg-blue-200"
+              >
+                +
+              </button>
             </div>
-            {isActive && record.status === 'confirmed' ? (
-              <div className="flex items-center gap-1.5 shrink-0">
+          ) : (
+            <div className="flex items-center gap-2 shrink-0">
+              {record.quantity > 1 && (
+                <span className="text-xs font-medium text-gray-500">×{record.quantity}</span>
+              )}
+              <span
+                className={`text-xs px-2 py-0.5 rounded-full ${
+                  record.status === 'confirmed'
+                    ? 'bg-green-100 text-green-700'
+                    : record.status === 'pending'
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {record.status === 'confirmed' ? 'Bevestigd' : record.status === 'pending' ? 'In afwachting' : record.status}
+              </span>
+            </div>
+          )}
+        </div>
+      ))}
+
+      {isActive && showManualAdd && manualStep === 'pick-type' && (
+        <div className="px-4 py-3 border-t border-gray-100 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-700">Selecteer objecttype</span>
+            <button onClick={cancelManual} className="text-xs text-gray-500 hover:text-gray-700">&times; Annuleren</button>
+          </div>
+          <input
+            type="text"
+            placeholder="Zoeken..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            autoFocus
+          />
+          <div className="max-h-48 overflow-y-auto space-y-1">
+            {filtered.map((t) => {
+              const exists = typesInLocation.has(t.id);
+              return (
                 <button
-                  onClick={() => handleQuantityChange(record.id, record.quantity, -1)}
-                  disabled={record.quantity <= 1}
-                  className="w-7 h-7 rounded-full bg-gray-100 text-sm font-bold text-gray-600 hover:bg-gray-200 disabled:opacity-30"
+                  key={t.id}
+                  onClick={() => handleTypeSelected(t.id)}
+                  className="w-full text-left px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-blue-50 flex justify-between items-center"
                 >
-                  −
+                  <span>{t.nameNl}</span>
+                  {exists && <span className="text-xs text-green-600">Bekend</span>}
                 </button>
-                <span className="text-sm font-bold text-gray-900 w-5 text-center tabular-nums">{record.quantity}</span>
-                <button
-                  onClick={() => handleQuantityChange(record.id, record.quantity, 1)}
-                  className="w-7 h-7 rounded-full bg-blue-100 text-sm font-bold text-blue-700 hover:bg-blue-200"
-                >
-                  +
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 shrink-0">
-                {record.quantity > 1 && (
-                  <span className="text-xs font-medium text-gray-500">×{record.quantity}</span>
-                )}
-                <span
-                  className={`text-xs px-2 py-0.5 rounded-full ${
-                    record.status === 'confirmed'
-                      ? 'bg-green-100 text-green-700'
-                      : record.status === 'pending'
-                        ? 'bg-yellow-100 text-yellow-700'
-                        : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  {record.status === 'confirmed' ? 'Bevestigd' : record.status === 'pending' ? 'In afwachting' : record.status}
-                </span>
-              </div>
+              );
+            })}
+            {filtered.length === 0 && (
+              <p className="text-xs text-gray-400 text-center py-3">Geen resultaten</p>
             )}
           </div>
-        ))
+        </div>
+      )}
+
+      {isActive && showManualAdd && manualStep === 'quantity' && (
+        <div className="px-4 py-3 border-t border-gray-100 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-900">{selectedTypeName}</span>
+            <button onClick={cancelManual} className="text-xs text-gray-500 hover:text-gray-700">&times; Annuleren</button>
+          </div>
+          {photoBlob && (
+            <img src={URL.createObjectURL(photoBlob)} alt="Foto" className="w-full max-h-32 object-contain rounded-lg" />
+          )}
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-700">Aantal</span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setManualQty((q) => Math.max(1, q - 1))}
+                disabled={manualQty <= 1}
+                className="w-9 h-9 rounded-full bg-gray-100 text-lg font-bold text-gray-700 hover:bg-gray-200 disabled:opacity-30"
+              >−</button>
+              <span className="text-xl font-bold text-gray-900 w-6 text-center tabular-nums">{manualQty}</span>
+              <button
+                onClick={() => setManualQty((q) => q + 1)}
+                className="w-9 h-9 rounded-full bg-blue-100 text-lg font-bold text-blue-700 hover:bg-blue-200"
+              >+</button>
+            </div>
+          </div>
+          <button
+            onClick={handleManualConfirm}
+            disabled={manualAdd.isPending}
+            className="w-full py-2 bg-green-600 text-white font-medium rounded-md hover:bg-green-700 disabled:opacity-50"
+          >
+            {manualAdd.isPending ? 'Toevoegen...' : 'Toevoegen'}
+          </button>
+        </div>
+      )}
+
+      {isActive && !showManualAdd && (
+        <button
+          onClick={() => setShowManualAdd(true)}
+          className="w-full px-4 py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-t border-gray-100"
+        >
+          + Object toevoegen
+        </button>
       )}
     </div>
   );

@@ -102,6 +102,52 @@ scansRouter.post('/:sessionId/scans', upload.single('photo'), async (req: Reques
   }
 });
 
+scansRouter.post('/:sessionId/scans/manual', upload.single('photo'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const sessionId = req.params.sessionId as string;
+    const { floorId, confirmedTypeId, quantity: qtyStr } = req.body as { floorId?: string; confirmedTypeId?: string; quantity?: string };
+
+    const session = await prisma.inventorySession.findUnique({ where: { id: sessionId } });
+    if (!session) { res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Session not found' } }); return; }
+    if (session.inspectorId !== req.inspector!.inspectorId) { res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not your session' } }); return; }
+    if (session.status !== 'active') { res.status(400).json({ error: { code: 'SESSION_COMPLETED', message: 'Session is completed' } }); return; }
+    if (!floorId || !confirmedTypeId) { res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'floorId and confirmedTypeId are required' } }); return; }
+
+    const qty = Math.max(1, parseInt(qtyStr ?? '1', 10) || 1);
+
+    const scanRecord = await prisma.scanRecord.create({
+      data: {
+        sessionId,
+        floorId,
+        inspectorId: req.inspector!.inspectorId,
+        photoPath: null,
+        confirmedTypeId,
+        quantity: qty,
+        status: 'confirmed',
+        confirmedAt: new Date(),
+      },
+    });
+
+    let photoPath: string | null = null;
+    if (req.file) {
+      photoPath = movePhoto(req.file.path, sessionId, scanRecord.id);
+      await prisma.scanRecord.update({
+        where: { id: scanRecord.id },
+        data: { photoPath },
+      });
+    }
+
+    const result = await prisma.scanRecord.findUnique({
+      where: { id: scanRecord.id },
+      include: { confirmedType: true },
+    });
+
+    res.status(201).json({ data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
 scansRouter.patch('/:id/confirm', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { confirmedTypeId, quantity } = req.body as { confirmedTypeId?: string; quantity?: number };

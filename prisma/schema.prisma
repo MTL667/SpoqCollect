@@ -103,7 +103,7 @@ model ScanRecord {
   sessionId        String            @map("session_id")
   floorId          String            @map("floor_id")
   inspectorId      String            @map("inspector_id")
-  photoPath        String            @map("photo_path")
+  photoPath        String?           @map("photo_path")
   aiProposedTypeId String?           @map("ai_proposed_type_id")
   aiConfidence     Float?            @map("ai_confidence")
   aiRawResponse    String?           @map("ai_raw_response")
