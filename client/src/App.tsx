@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
-import { useAuth } from './features/auth/use-auth';
+import { AuthProvider, useAuth } from './features/auth/use-auth';
 import LoginForm from './features/auth/LoginForm';
 import SessionList from './features/sessions/SessionList';
 import CreateSession from './features/sessions/CreateSession';
@@ -28,6 +28,7 @@ function LoginPage() {
 
 export default function App() {
   return (
+    <AuthProvider>
     <BrowserRouter>
       <OfflineIndicator />
       <Routes>
@@ -51,5 +52,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/sessions" replace />} />
       </Routes>
     </BrowserRouter>
+    </AuthProvider>
   );
 }

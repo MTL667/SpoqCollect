@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useContext, createContext, type ReactNode } from 'react';
+import { createElement } from 'react';
 import { setTokenAccessor, setOnUnauthorized } from '../../lib/api-client';
 
 interface Inspector {
@@ -11,6 +12,14 @@ interface Inspector {
 interface AuthState {
   token: string | null;
   inspector: Inspector | null;
+}
+
+interface AuthContextValue {
+  token: string | null;
+  inspector: Inspector | null;
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<Inspector>;
+  logout: () => void;
 }
 
 const STORAGE_KEY = 'inventarispoq_auth';
@@ -31,7 +40,9 @@ function saveToStorage(state: AuthState) {
   }
 }
 
-export function useAuth() {
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>(loadFromStorage);
 
   useEffect(() => {
@@ -74,11 +85,19 @@ export function useAuth() {
     saveToStorage(cleared);
   }, []);
 
-  return {
+  const value: AuthContextValue = {
     token: state.token,
     inspector: state.inspector,
     isAuthenticated: !!state.token,
     login,
     logout,
   };
+
+  return createElement(AuthContext.Provider, { value }, children);
+}
+
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
 }
