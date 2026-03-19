@@ -79,43 +79,47 @@ export async function generateHeliOmExcel(sessionId: string): Promise<Buffer> {
   for (const location of session.locations) {
     for (const floor of location.floors) {
       for (const record of floor.scanRecords) {
+        const qty = record.quantity ?? 1;
         const category = record.confirmedType?.heliOmCategory ?? 'XX';
-        const count = (counters.get(category) ?? 0) + 1;
-        counters.set(category, count);
-        const idLabel = `${addressLabel} - ${category} ${String(count).padStart(3, '0')}`;
 
-        sheet.addRow({
-          'Equipment': idLabel,
-          'Categorie': category,
-          'Omschrijving NL': record.confirmedType?.nameNl ?? '',
-          'Omschrijving FR': record.confirmedType?.nameFr ?? '',
-          'Klantref': '',
-          'Serial': '',
-          'Product ID': '',
-          'Straat': session.street,
-          'Huisnummer': `${session.number}${session.bus ? ` bus ${session.bus}` : ''}`,
-          'Postcode': session.postalCode,
-          'Stad': session.city,
-          'Locatie': location.name,
-          'Verdieping': floor.name,
-          'Lokaal': '',
-          'Gebouwtype': session.buildingType.nameNl,
-          'Merk': '',
-          'Type': '',
-          'Bouwjaar': '',
-          'Inhoud': '',
-          'Klasse': '',
-          'Laatste keuringsdatum': '',
-          'Gekeurd tot datum': '',
-          'LB/LMB %': '',
-          'Commentaar keuring': '',
-          'Keurder-initialen': initials,
-          'Ext. keuringsnummer': '',
-          'Status': 'Nieuw',
-          'Opmerkingen': '',
-          'Foto pad': record.photoPath,
-          'AI confidence': record.aiConfidence ? `${Math.round(record.aiConfidence * 100)}%` : '',
-        });
+        for (let i = 0; i < qty; i++) {
+          const count = (counters.get(category) ?? 0) + 1;
+          counters.set(category, count);
+          const idLabel = `${addressLabel} - ${category} ${String(count).padStart(3, '0')}`;
+
+          sheet.addRow({
+            'Equipment': idLabel,
+            'Categorie': category,
+            'Omschrijving NL': record.confirmedType?.nameNl ?? '',
+            'Omschrijving FR': record.confirmedType?.nameFr ?? '',
+            'Klantref': '',
+            'Serial': '',
+            'Product ID': '',
+            'Straat': session.street,
+            'Huisnummer': `${session.number}${session.bus ? ` bus ${session.bus}` : ''}`,
+            'Postcode': session.postalCode,
+            'Stad': session.city,
+            'Locatie': location.name,
+            'Verdieping': floor.name,
+            'Lokaal': '',
+            'Gebouwtype': session.buildingType.nameNl,
+            'Merk': '',
+            'Type': '',
+            'Bouwjaar': '',
+            'Inhoud': '',
+            'Klasse': '',
+            'Laatste keuringsdatum': '',
+            'Gekeurd tot datum': '',
+            'LB/LMB %': '',
+            'Commentaar keuring': '',
+            'Keurder-initialen': initials,
+            'Ext. keuringsnummer': '',
+            'Status': 'Nieuw',
+            'Opmerkingen': '',
+            'Foto pad': record.photoPath,
+            'AI confidence': record.aiConfidence ? `${Math.round(record.aiConfidence * 100)}%` : '',
+          });
+        }
       }
     }
   }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useSession, useCompleteSession, useCreateLocation, useCreateFloor, formatAddress } from './use-sessions';
 import type { LocationItem, FloorItem } from './use-sessions';
+import { useUpdateQuantity } from '../scan/use-scan';
 import PhotoThumbnail from '../../shared/components/PhotoThumbnail';
 import ConfirmDialog from '../../shared/components/ConfirmDialog';
 import ExportView from '../export/ExportView';
@@ -20,7 +21,7 @@ export default function SessionDetail() {
   if (isError || !session) return <div className="p-6 text-red-600">Sessie niet gevonden</div>;
 
   const isActive = session.status === 'active';
-  const totalScans = session.scanRecords.length;
+  const totalScans = session.scanRecords.reduce((sum, r) => sum + (r.quantity ?? 1), 0);
 
   function handleAddLocation() {
     if (!newLocationName.trim()) return;
@@ -156,7 +157,7 @@ function LocationSection({ location, sessionId, isActive }: { location: Location
       </div>
 
       {location.floors.map((floor) => (
-        <FloorSection key={floor.id} floor={floor} />
+        <FloorSection key={floor.id} floor={floor} isActive={isActive} />
       ))}
 
       {location.floors.length === 0 && (
@@ -204,7 +205,15 @@ function LocationSection({ location, sessionId, isActive }: { location: Location
   );
 }
 
-function FloorSection({ floor }: { floor: FloorItem }) {
+function FloorSection({ floor, isActive }: { floor: FloorItem; isActive: boolean }) {
+  const updateQuantity = useUpdateQuantity();
+
+  function handleQuantityChange(scanId: string, currentQty: number, delta: number) {
+    const newQty = Math.max(1, currentQty + delta);
+    if (newQty === currentQty) return;
+    updateQuantity.mutate({ scanId, quantity: newQty });
+  }
+
   return (
     <div className="border-t border-gray-50">
       <div className="px-4 py-2 bg-gray-50">
@@ -227,17 +236,41 @@ function FloorSection({ floor }: { floor: FloorItem }) {
                 {new Date(record.createdAt).toLocaleTimeString('nl-BE')}
               </p>
             </div>
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full ${
-                record.status === 'confirmed'
-                  ? 'bg-green-100 text-green-700'
-                  : record.status === 'pending'
-                    ? 'bg-yellow-100 text-yellow-700'
-                    : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              {record.status === 'confirmed' ? 'Bevestigd' : record.status === 'pending' ? 'In afwachting' : record.status}
-            </span>
+            {isActive && record.status === 'confirmed' ? (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => handleQuantityChange(record.id, record.quantity, -1)}
+                  disabled={record.quantity <= 1}
+                  className="w-7 h-7 rounded-full bg-gray-100 text-sm font-bold text-gray-600 hover:bg-gray-200 disabled:opacity-30"
+                >
+                  −
+                </button>
+                <span className="text-sm font-bold text-gray-900 w-5 text-center tabular-nums">{record.quantity}</span>
+                <button
+                  onClick={() => handleQuantityChange(record.id, record.quantity, 1)}
+                  className="w-7 h-7 rounded-full bg-blue-100 text-sm font-bold text-blue-700 hover:bg-blue-200"
+                >
+                  +
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 shrink-0">
+                {record.quantity > 1 && (
+                  <span className="text-xs font-medium text-gray-500">×{record.quantity}</span>
+                )}
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full ${
+                    record.status === 'confirmed'
+                      ? 'bg-green-100 text-green-700'
+                      : record.status === 'pending'
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {record.status === 'confirmed' ? 'Bevestigd' : record.status === 'pending' ? 'In afwachting' : record.status}
+                </span>
+              </div>
+            )}
           </div>
         ))
       )}

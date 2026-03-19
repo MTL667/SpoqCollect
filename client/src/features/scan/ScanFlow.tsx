@@ -17,6 +17,7 @@ interface ScanState {
   aiTypeId: string | null;
   aiConfidence: number | null;
   candidates: Array<{ typeId: string; confidence: number }>;
+  quantity: number;
 }
 
 export default function ScanFlow() {
@@ -34,6 +35,7 @@ export default function ScanFlow() {
     aiTypeId: null,
     aiConfidence: null,
     candidates: [],
+    quantity: 1,
   });
 
   const { data: objectTypes } = useQuery({
@@ -110,7 +112,7 @@ export default function ScanFlow() {
   function handleConfirm(typeId: string) {
     if (!scanState.scanRecordId) return;
     confirmScan.mutate(
-      { scanId: scanState.scanRecordId, confirmedTypeId: typeId },
+      { scanId: scanState.scanRecordId, confirmedTypeId: typeId, quantity: scanState.quantity },
       {
         onSuccess: () => {
           setScanState((prev) => ({
@@ -120,6 +122,7 @@ export default function ScanFlow() {
             aiTypeId: null,
             aiConfidence: null,
             candidates: [],
+            quantity: 1,
           }));
           setStep('camera');
         },
@@ -189,6 +192,25 @@ export default function ScanFlow() {
           />
         </div>
       )}
+      <div className="px-4 py-3 flex items-center justify-between bg-white border-b border-gray-200">
+        <span className="text-sm font-medium text-gray-700">Aantal</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setScanState((prev) => ({ ...prev, quantity: Math.max(1, prev.quantity - 1) }))}
+            disabled={scanState.quantity <= 1}
+            className="w-10 h-10 rounded-full bg-gray-100 text-xl font-bold text-gray-700 hover:bg-gray-200 disabled:opacity-30 disabled:hover:bg-gray-100"
+          >
+            −
+          </button>
+          <span className="text-2xl font-bold text-gray-900 w-8 text-center tabular-nums">{scanState.quantity}</span>
+          <button
+            onClick={() => setScanState((prev) => ({ ...prev, quantity: prev.quantity + 1 }))}
+            className="w-10 h-10 rounded-full bg-blue-100 text-xl font-bold text-blue-700 hover:bg-blue-200"
+          >
+            +
+          </button>
+        </div>
+      </div>
       <ClassificationResult
         aiTypeId={scanState.aiTypeId}
         aiConfidence={scanState.aiConfidence}

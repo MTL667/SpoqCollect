@@ -35,6 +35,7 @@ interface ScanData {
   id: string;
   photoPath: string;
   confirmedType: { nameNl: string; nameFr: string; heliOmCategory: string } | null;
+  quantity: number;
   createdAt: Date;
   aiConfidence: number | null;
 }
@@ -84,7 +85,7 @@ function ClientReport({ session }: { session: SessionData }) {
             {session.completedAt ? ` — ${session.completedAt.toLocaleDateString('nl-BE')}` : ''}
           </Text>
           <Text style={styles.meta}>
-            Aantal objecten / Nombre d&apos;objets: {session.scanRecords.length}
+            Aantal objecten / Nombre d&apos;objets: {session.scanRecords.reduce((s, r) => s + (r.quantity ?? 1), 0)}
           </Text>
         </View>
 
@@ -109,7 +110,7 @@ function ClientReport({ session }: { session: SessionData }) {
                       )}
                       <View style={styles.recordInfo}>
                         <Text style={styles.recordName}>
-                          {globalIndex}. {record.confirmedType?.nameNl ?? 'Onbekend'}
+                          {globalIndex}. {record.confirmedType?.nameNl ?? 'Onbekend'}{(record.quantity ?? 1) > 1 ? ` (×${record.quantity})` : ''}
                         </Text>
                         <Text style={styles.recordNameFr}>
                           {record.confirmedType?.nameFr ?? 'Inconnu'}

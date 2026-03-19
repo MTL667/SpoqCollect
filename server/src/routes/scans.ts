@@ -104,7 +104,7 @@ scansRouter.post('/:sessionId/scans', upload.single('photo'), async (req: Reques
 
 scansRouter.patch('/:id/confirm', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { confirmedTypeId } = req.body as { confirmedTypeId?: string };
+    const { confirmedTypeId, quantity } = req.body as { confirmedTypeId?: string; quantity?: number };
     const scanId = req.params.id as string;
 
     if (!confirmedTypeId) {
@@ -130,9 +130,44 @@ scansRouter.patch('/:id/confirm', async (req: Request, res: Response, next: Next
       where: { id: scanId },
       data: {
         confirmedTypeId,
+        quantity: quantity && quantity >= 1 ? quantity : 1,
         confirmedAt: new Date(),
         status: 'confirmed',
       },
+      include: { confirmedType: true },
+    });
+
+    res.json({ data: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
+scansRouter.patch('/:id/quantity', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { quantity } = req.body as { quantity?: number };
+    const scanId = req.params.id as string;
+
+    if (!quantity || quantity < 1) {
+      res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'quantity must be >= 1' } });
+      return;
+    }
+
+    const scan = await prisma.scanRecord.findUnique({ where: { id: scanId } });
+
+    if (!scan) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Scan record not found' } });
+      return;
+    }
+
+    if (scan.inspectorId !== req.inspector!.inspectorId) {
+      res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not your scan' } });
+      return;
+    }
+
+    const updated = await prisma.scanRecord.update({
+      where: { id: scanId },
+      data: { quantity },
       include: { confirmedType: true },
     });
 

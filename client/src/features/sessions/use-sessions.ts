@@ -27,6 +27,7 @@ interface ScanRecordItem {
   floorId: string;
   confirmedTypeId: string | null;
   confirmedType: { nameNl: string } | null;
+  quantity: number;
   createdAt: string;
   status: string;
 }
