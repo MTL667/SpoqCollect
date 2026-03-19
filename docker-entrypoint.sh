@@ -10,7 +10,7 @@ ls -la /app/
 
 echo ""
 echo "=== Pushing database schema ==="
-npx prisma db push --accept-data-loss 2>&1
+npx prisma db push --force-reset 2>&1
 echo "=== Schema push complete ==="
 
 echo ""
