@@ -49,6 +49,11 @@ export function useAuth() {
       body: JSON.stringify({ email, password }),
     });
 
+    const contentType = res.headers.get('content-type') ?? '';
+    if (!contentType.includes('application/json')) {
+      throw new Error(`Server onbereikbaar (status ${res.status}). Probeer later opnieuw.`);
+    }
+
     const json = await res.json();
 
     if (!res.ok) {

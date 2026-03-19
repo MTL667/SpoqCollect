@@ -34,6 +34,10 @@ app.use('/api/sessions', scansRouter);
 app.use('/api/scans', scansRouter);
 app.use('/api/sessions', exportsRouter);
 
+app.use('/api', ((_req, res) => {
+  res.status(404).json({ error: { code: 'NOT_FOUND', message: 'API route not found' } });
+}) as import('express').RequestHandler);
+
 const publicDir = path.resolve(__dirname, '../../public');
 if (config.NODE_ENV === 'production') {
   app.use(express.static(publicDir));
