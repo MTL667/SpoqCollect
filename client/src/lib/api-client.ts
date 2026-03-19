@@ -1,6 +1,16 @@
 let tokenAccessor: (() => string | null) | null = null;
 let onUnauthorized: (() => void) | null = null;
 
+const AUTH_STORAGE_KEY = 'inventarispoq_auth';
+
+function getTokenFromStorage(): string | null {
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (raw) return (JSON.parse(raw) as { token: string | null }).token;
+  } catch { /* ignore */ }
+  return null;
+}
+
 export function setTokenAccessor(fn: () => string | null) {
   tokenAccessor = fn;
 }
@@ -13,7 +23,7 @@ export async function apiClient<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const token = tokenAccessor?.();
+  const token = tokenAccessor?.() ?? getTokenFromStorage();
   const headers = new Headers(options.headers);
 
   if (token) {
