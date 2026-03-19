@@ -1,29 +1,22 @@
-let tokenAccessor: (() => string | null) | null = null;
-let onUnauthorized: (() => void) | null = null;
-
 const AUTH_STORAGE_KEY = 'inventarispoq_auth';
 
-function getTokenFromStorage(): string | null {
+function getToken(): string | null {
   try {
     const raw = localStorage.getItem(AUTH_STORAGE_KEY);
     if (raw) return (JSON.parse(raw) as { token: string | null }).token;
-  } catch { /* ignore */ }
+  } catch { /* ignore corrupt data */ }
   return null;
 }
 
-export function setTokenAccessor(fn: () => string | null) {
-  tokenAccessor = fn;
-}
-
-export function setOnUnauthorized(fn: () => void) {
-  onUnauthorized = fn;
+function clearAuth() {
+  localStorage.removeItem(AUTH_STORAGE_KEY);
 }
 
 export async function apiClient<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const token = tokenAccessor?.() ?? getTokenFromStorage();
+  const token = getToken();
   const headers = new Headers(options.headers);
 
   if (token) {
@@ -37,7 +30,8 @@ export async function apiClient<T>(
   const res = await fetch(path, { ...options, headers });
 
   if (res.status === 401) {
-    onUnauthorized?.();
+    clearAuth();
+    window.location.href = '/login';
     throw new Error('Unauthorized');
   }
 

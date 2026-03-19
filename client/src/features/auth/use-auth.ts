@@ -1,6 +1,5 @@
-import { useState, useCallback, useEffect, useContext, createContext, type ReactNode } from 'react';
+import { useState, useCallback, useContext, createContext, type ReactNode } from 'react';
 import { createElement } from 'react';
-import { setTokenAccessor, setOnUnauthorized } from '../../lib/api-client';
 
 interface Inspector {
   id: string;
@@ -44,14 +43,6 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>(loadFromStorage);
-
-  useEffect(() => {
-    setTokenAccessor(() => state.token);
-    setOnUnauthorized(() => {
-      setState({ token: null, inspector: null });
-      saveToStorage({ token: null, inspector: null });
-    });
-  }, [state.token]);
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await fetch('/api/auth/login', {
