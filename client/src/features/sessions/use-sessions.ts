@@ -121,6 +121,19 @@ export function useCompleteSession(sessionId: string) {
   });
 }
 
+export function useReopenSession(sessionId: string) {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: () =>
+      apiClient(`/api/sessions/${sessionId}/reopen`, { method: 'PATCH' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sessions'] });
+      qc.invalidateQueries({ queryKey: ['sessions', sessionId] });
+    },
+  });
+}
+
 export function useBuildingTypes() {
   return useQuery({
     queryKey: ['building-types'],

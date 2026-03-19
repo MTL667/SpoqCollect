@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { useSession, useCompleteSession, useCreateLocation, useCreateFloor, formatAddress } from './use-sessions';
+import { useSession, useCompleteSession, useReopenSession, useCreateLocation, useCreateFloor, formatAddress } from './use-sessions';
 import type { LocationItem, FloorItem } from './use-sessions';
 import { useUpdateQuantity } from '../scan/use-scan';
 import PhotoThumbnail from '../../shared/components/PhotoThumbnail';
@@ -12,6 +12,7 @@ export default function SessionDetail() {
   const navigate = useNavigate();
   const { data: session, isLoading, isError } = useSession(id!);
   const completeSession = useCompleteSession(id!);
+  const reopenSession = useReopenSession(id!);
   const createLocation = useCreateLocation(id!);
   const [showConfirm, setShowConfirm] = useState(false);
   const [newLocationName, setNewLocationName] = useState('');
@@ -65,7 +66,14 @@ export default function SessionDetail() {
           )}
         </div>
         {!isActive && (
-          <div className="mt-3">
+          <div className="mt-3 space-y-2">
+            <button
+              onClick={() => reopenSession.mutate()}
+              disabled={reopenSession.isPending}
+              className="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 disabled:opacity-50"
+            >
+              {reopenSession.isPending ? 'Hervatten...' : 'Sessie hervatten'}
+            </button>
             <ExportView sessionId={session.id} clientAddress={`${session.clientName} - ${formatAddress(session)}`} status={session.status} />
           </div>
         )}

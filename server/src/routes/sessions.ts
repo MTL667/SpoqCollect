@@ -139,3 +139,38 @@ sessionsRouter.patch('/:id/complete', async (req, res, next) => {
     next(error);
   }
 });
+
+sessionsRouter.patch('/:id/reopen', async (req, res, next) => {
+  try {
+    const session = await prisma.inventorySession.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!session) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Session not found' } });
+      return;
+    }
+
+    if (session.inspectorId !== req.inspector!.inspectorId) {
+      res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not your session' } });
+      return;
+    }
+
+    if (session.status === 'active') {
+      res.status(400).json({
+        error: { code: 'SESSION_ALREADY_ACTIVE', message: 'Session is already active' },
+      });
+      return;
+    }
+
+    const updated = await prisma.inventorySession.update({
+      where: { id: req.params.id },
+      data: { status: 'active', completedAt: null },
+      include: { buildingType: true },
+    });
+
+    res.json({ data: updated });
+  } catch (error) {
+    next(error);
+  }
+});
