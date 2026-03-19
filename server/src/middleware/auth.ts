@@ -9,7 +9,7 @@ declare global {
   }
 }
 
-const PUBLIC_PATHS = ['/api/auth/login', '/api/health'];
+const PUBLIC_PATHS = ['/api/auth/login', '/api/health', '/api/scans/photo/', '/api/sessions/photo/'];
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   if (PUBLIC_PATHS.some((p) => req.path.startsWith(p))) {
