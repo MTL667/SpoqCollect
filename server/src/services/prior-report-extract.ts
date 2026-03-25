@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import type { ChatCompletionContentPart } from 'openai/resources/chat/completions';
-import pdfParse from 'pdf-parse';
+// Package entry runs debug readFile on import when loaded as ESM (Docker/production). Use lib entry only.
+import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { config } from '../config.js';
 import { logger } from '../lib/logger.js';
 
