@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsup src/server.ts --format esm --outDir dist --clean",
+    "build": "tsup src/server.ts --format esm --outDir dist --clean --external pdf-parse",
     "start": "node dist/server.js"
   },
   "dependencies": {
@@ -19,6 +19,7 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
     "openai": "^6.29.0",
+    "pdf-parse": "^1.1.1",
     "pg": "^8.20.0",
     "pino": "^9.6.0",
     "react": "^19.2.4",
@@ -27,6 +28,7 @@
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
+    "@types/pdf-parse": "^1.1.4",
     "pino-pretty": "^13.0.0",
     "prisma": "^7.5.0",
     "tsup": "^8.4.0",

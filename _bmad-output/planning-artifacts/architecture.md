@@ -7,6 +7,7 @@ inputDocuments:
   - '_bmad-output/planning-artifacts/prd.md'
   - '_bmad-output/planning-artifacts/prd-validation-report.md'
   - '_bmad-output/brainstorming/brainstorming-session-2026-03-12-1300.md'
+  - '_bmad-output/planning-artifacts/asset-uitbreiding-brand-veiligheid-odoo.md'
 workflowType: 'architecture'
 project_name: 'InventariSpoq'
 user_name: 'Kevin'
@@ -16,6 +17,10 @@ date: '2026-03-12'
 # Architecture Decision Document
 
 _This document builds collaboratively through step-by-step discovery. Sections are appended as we work through each architectural decision together._
+
+## Supplementary domain requirements (BMAD-geladen, 2026-03-25)
+
+Het document **`asset-uitbreiding-brand-veiligheid-odoo.md`** is opgenomen in `inputDocuments` en beschrijft uitbreidingen op het asset- en inspectiemodel: **hiërarchie (gebouw / installatie / subasset)**, **conditionele vragen op vaste sessie-momenten**, en een **tweede exportlaag naar Odoo** (diensten/productcodes naast bestaande Heli OM + clientrapport). Nieuwe architectuurbeslissingen rond parent-child op scanrecords, vraag-engine per objecttype, en ERP-mapping moeten tegen dit document worden afgezet tot de ADR-secties hieronder expliciet zijn bijgewerkt.
 
 ## Project Context Analysis
 

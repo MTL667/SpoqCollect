@@ -125,6 +125,33 @@ async function main() {
   }
   console.log(`  ${objectTypes.length} object types upserted with building type links`);
 
+  console.log('Seeding service code mappings (Odoo handoff)...');
+  await prisma.serviceCodeMapping.deleteMany({});
+  const mappingSeeds: { nameNl: string; regime: string | null; odooProductCode: string; labelNl: string }[] = [
+    { nameNl: 'Personenlift', regime: null, odooProductCode: 'ODOO-SVC-PL', labelNl: 'Personenlift (default)' },
+    { nameNl: 'Personenlift', regime: 'norm', odooProductCode: 'ODOO-SVC-PL-NORM', labelNl: 'Personenlift normkeuring' },
+    { nameNl: 'Personenlift', regime: 'werking', odooProductCode: 'ODOO-SVC-PL-WERK', labelNl: 'Personenlift goede werking' },
+    { nameNl: 'Brandblusser', regime: null, odooProductCode: 'ODOO-SVC-BB', labelNl: 'Brandblusser' },
+    { nameNl: 'Bliksemafleider', regime: null, odooProductCode: 'ODOO-SVC-BLA', labelNl: 'Bliksemafleider' },
+    { nameNl: 'Heftruck', regime: null, odooProductCode: 'ODOO-SVC-HT', labelNl: 'Heftruck' },
+  ];
+  let mapCount = 0;
+  for (const m of mappingSeeds) {
+    const ot = await prisma.objectType.findUnique({ where: { nameNl: m.nameNl } });
+    if (!ot) continue;
+    await prisma.serviceCodeMapping.create({
+      data: {
+        objectTypeId: ot.id,
+        regime: m.regime,
+        odooProductCode: m.odooProductCode,
+        labelNl: m.labelNl,
+        version: 1,
+      },
+    });
+    mapCount++;
+  }
+  console.log(`  ${mapCount} service code mappings created`);
+
   console.log('Seeding test inspector...');
   const passwordHash = await hash('test1234', 10);
   await prisma.inspector.upsert({

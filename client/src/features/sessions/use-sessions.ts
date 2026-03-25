@@ -30,6 +30,8 @@ interface ScanRecordItem {
   quantity: number;
   createdAt: string;
   status: string;
+  parentScanId?: string | null;
+  onScanPromptAnswers?: Record<string, unknown> | null;
 }
 
 interface FloorItem {
@@ -62,6 +64,8 @@ interface SessionDetail {
   inspector: { id: string; name: string };
   locations: LocationItem[];
   scanRecords: ScanRecordItem[];
+  sessionPromptData?: Record<string, unknown> | null;
+  mappingVersion?: number;
 }
 
 export type { SessionListItem, SessionDetail, LocationItem, FloorItem, ScanRecordItem };
@@ -106,17 +110,50 @@ export function useCreateSession() {
   });
 }
 
+export interface CompleteSessionPayload {
+  end?: Record<string, string>;
+  lightning?: Record<string, string>;
+  atex?: Record<string, string>;
+}
+
 export function useCompleteSession(sessionId: string) {
   const qc = useQueryClient();
   const navigate = useNavigate();
 
   return useMutation({
-    mutationFn: () =>
-      apiClient(`/api/sessions/${sessionId}/complete`, { method: 'PATCH' }),
+    mutationFn: (payload: CompleteSessionPayload = {}) =>
+      apiClient(`/api/sessions/${sessionId}/complete`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json' },
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sessions'] });
       qc.invalidateQueries({ queryKey: ['sessions', sessionId] });
+      qc.invalidateQueries({ queryKey: ['prompt-catalog', sessionId] });
       navigate('/sessions');
+    },
+  });
+}
+
+export function usePatchSessionPrompts(sessionId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: {
+      start?: Record<string, unknown>;
+      startCompleted?: boolean;
+      end?: Record<string, unknown>;
+      lightning?: Record<string, unknown>;
+      atex?: Record<string, unknown>;
+    }) =>
+      apiClient(`/api/sessions/${sessionId}/prompts`, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sessions', sessionId] });
+      qc.invalidateQueries({ queryKey: ['prompt-catalog', sessionId] });
     },
   });
 }

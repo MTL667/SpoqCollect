@@ -40,6 +40,34 @@ export function useExportHeliOm(sessionId: string, clientAddress: string) {
   });
 }
 
+export function useExportOdoo(sessionId: string, clientAddress: string) {
+  return useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/sessions/${sessionId}/export/odoo`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message ?? 'Export failed');
+      }
+
+      const unmapped = res.headers.get('X-Odoo-Unmapped-Count');
+      const blob = await res.blob();
+      return { blob, unmappedCount: unmapped ? parseInt(unmapped, 10) : 0 };
+    },
+    onSuccess: ({ blob, unmappedCount }) => {
+      const sanitized = clientAddress.replace(/[^a-zA-Z0-9 -]/g, '').replace(/\s+/g, '-');
+      const date = new Date().toISOString().split('T')[0];
+      triggerDownload(blob, `odoo-${sanitized}-${date}.csv`);
+      if (unmappedCount > 0) {
+        window.alert(`${unmappedCount} regel(s) zonder productcode-mapping (UNMAPPED in CSV).`);
+      }
+    },
+  });
+}
+
 export function useExportReport(sessionId: string, clientAddress: string) {
   return useMutation({
     mutationFn: async () => {

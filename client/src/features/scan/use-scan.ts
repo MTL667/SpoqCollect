@@ -110,7 +110,17 @@ export function useConfirmScan() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ scanId, confirmedTypeId, quantity }: { scanId: string; confirmedTypeId: string; quantity?: number }) => {
+    mutationFn: async ({
+      scanId,
+      confirmedTypeId,
+      quantity,
+      onScanPromptAnswers,
+    }: {
+      scanId: string;
+      confirmedTypeId: string;
+      quantity?: number;
+      onScanPromptAnswers?: Record<string, unknown>;
+    }) => {
       const token = localStorage.getItem('inventarispoq_auth');
       const parsed = token ? JSON.parse(token) : null;
 
@@ -120,7 +130,11 @@ export function useConfirmScan() {
           'Content-Type': 'application/json',
           ...(parsed?.token ? { Authorization: `Bearer ${parsed.token}` } : {}),
         },
-        body: JSON.stringify({ confirmedTypeId, quantity: quantity ?? 1 }),
+        body: JSON.stringify({
+          confirmedTypeId,
+          quantity: quantity ?? 1,
+          ...(onScanPromptAnswers !== undefined ? { onScanPromptAnswers } : {}),
+        }),
       });
 
       if (!res.ok) {
@@ -133,6 +147,34 @@ export function useConfirmScan() {
     },
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['sessions'] });
+      qc.invalidateQueries({ queryKey: ['prompt-catalog'] });
+    },
+  });
+}
+
+export function usePatchScan(sessionId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { scanId: string; parentScanId?: string | null }) => {
+      const token = localStorage.getItem('inventarispoq_auth');
+      const parsed = token ? JSON.parse(token) : null;
+      const res = await fetch(`/api/scans/${input.scanId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(parsed?.token ? { Authorization: `Bearer ${parsed.token}` } : {}),
+        },
+        body: JSON.stringify({ parentScanId: input.parentScanId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message ?? 'Update failed');
+      }
+      const json = await res.json();
+      return json.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sessions', sessionId] });
     },
   });
 }

@@ -32,13 +32,15 @@ model BuildingType {
 }
 
 model ObjectType {
-  id             String                    @id @default(cuid())
-  nameNl         String                    @unique @map("name_nl")
-  nameFr         String                    @map("name_fr")
-  heliOmCategory String                    @map("heli_om_category")
-  active         Boolean                   @default(true)
-  buildingTypes  ObjectTypeBuildingType[]
-  scanRecords    ScanRecord[]
+  id                  String                    @id @default(cuid())
+  nameNl              String                    @unique @map("name_nl")
+  nameFr              String                    @map("name_fr")
+  heliOmCategory      String                    @map("heli_om_category")
+  active              Boolean                   @default(true)
+  buildingTypes       ObjectTypeBuildingType[]
+  scanRecords         ScanRecord[]
+  serviceCodeMappings ServiceCodeMapping[]
+  draftAssetsAsSuggestion DraftAsset[]          @relation("DraftAssetSuggestedType")
 
   @@map("object_types")
 }
@@ -54,22 +56,26 @@ model ObjectTypeBuildingType {
 }
 
 model InventorySession {
-  id             String       @id @default(cuid())
-  inspectorId    String       @map("inspector_id")
-  clientName     String       @map("client_name")
-  street         String
-  number         String
-  bus            String?
-  postalCode     String       @map("postal_code")
-  city           String
-  buildingTypeId String       @map("building_type_id")
-  status         String       @default("active")
-  createdAt      DateTime     @default(now()) @map("created_at")
-  completedAt    DateTime?    @map("completed_at")
-  inspector      Inspector    @relation(fields: [inspectorId], references: [id])
-  buildingType   BuildingType @relation(fields: [buildingTypeId], references: [id])
-  locations      Location[]
-  scanRecords    ScanRecord[]
+  id                 String            @id @default(cuid())
+  inspectorId        String            @map("inspector_id")
+  clientName         String            @map("client_name")
+  street             String
+  number             String
+  bus                String?
+  postalCode         String            @map("postal_code")
+  city               String
+  buildingTypeId     String            @map("building_type_id")
+  status             String            @default("active")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  completedAt        DateTime?         @map("completed_at")
+  sessionPromptData  Json?             @map("session_prompt_data")
+  mappingVersion     Int               @default(1) @map("mapping_version")
+  inspector          Inspector         @relation(fields: [inspectorId], references: [id])
+  buildingType       BuildingType      @relation(fields: [buildingTypeId], references: [id])
+  locations          Location[]
+  scanRecords        ScanRecord[]
+  priorReportFiles   PriorReportFile[]
+  draftAssets        DraftAsset[]
 
   @@map("inventory_sessions")
 }
@@ -99,26 +105,86 @@ model Floor {
 }
 
 model ScanRecord {
-  id               String            @id @default(cuid())
-  sessionId        String            @map("session_id")
-  floorId          String            @map("floor_id")
-  inspectorId      String            @map("inspector_id")
-  photoPath        String?           @map("photo_path")
-  aiProposedTypeId String?           @map("ai_proposed_type_id")
-  aiConfidence     Float?            @map("ai_confidence")
-  aiRawResponse    String?           @map("ai_raw_response")
-  confirmedTypeId  String?           @map("confirmed_type_id")
-  quantity         Int               @default(1)
-  status           String            @default("pending")
-  createdAt        DateTime          @default(now()) @map("created_at")
-  confirmedAt      DateTime?         @map("confirmed_at")
-  session          InventorySession  @relation(fields: [sessionId], references: [id])
-  floor            Floor             @relation(fields: [floorId], references: [id])
-  inspector        Inspector         @relation(fields: [inspectorId], references: [id])
-  confirmedType    ObjectType?       @relation(fields: [confirmedTypeId], references: [id])
-  scanJob          ScanJob?
+  id                   String            @id @default(cuid())
+  sessionId            String            @map("session_id")
+  floorId              String            @map("floor_id")
+  inspectorId          String            @map("inspector_id")
+  photoPath            String?           @map("photo_path")
+  aiProposedTypeId     String?           @map("ai_proposed_type_id")
+  aiConfidence         Float?            @map("ai_confidence")
+  aiRawResponse        String?           @map("ai_raw_response")
+  confirmedTypeId      String?           @map("confirmed_type_id")
+  quantity             Int               @default(1)
+  status               String            @default("pending")
+  createdAt            DateTime          @default(now()) @map("created_at")
+  confirmedAt          DateTime?         @map("confirmed_at")
+  parentScanId         String?           @map("parent_scan_id")
+  onScanPromptAnswers  Json?             @map("on_scan_prompt_answers")
+  session              InventorySession  @relation(fields: [sessionId], references: [id])
+  floor                Floor             @relation(fields: [floorId], references: [id])
+  inspector            Inspector         @relation(fields: [inspectorId], references: [id])
+  confirmedType        ObjectType?       @relation(fields: [confirmedTypeId], references: [id])
+  parentScan           ScanRecord?       @relation("ScanHierarchy", fields: [parentScanId], references: [id], onDelete: SetNull)
+  childScans           ScanRecord[]      @relation("ScanHierarchy")
+  scanJob              ScanJob?
+  matchedDraftAsset    DraftAsset?   @relation("DraftMatchedScan")
 
+  @@index([parentScanId])
   @@map("scan_records")
+}
+
+/** Geüpload eerdere keuringsverslag: één PDF-bestand of map met fotobatch (imgbatch-*). */
+model PriorReportFile {
+  id                String       @id @default(cuid())
+  sessionId         String       @map("session_id")
+  originalName      String       @map("original_name")
+  storedPath        String       @map("stored_path")
+  mimeType          String       @default("application/pdf") @map("mime_type")
+  extractionStatus  String       @default("pending") @map("extraction_status")
+  extractionError   String?      @map("extraction_error")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  session           InventorySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  draftAssets       DraftAsset[]
+
+  @@map("prior_report_files")
+}
+
+/**
+ * Concept-asset uit vorig verslag (te activeren bij scan op locatie).
+ * status: draft | matched | skipped
+ */
+model DraftAsset {
+  id                    String            @id @default(cuid())
+  sessionId             String            @map("session_id")
+  priorReportFileId     String?           @map("prior_report_file_id")
+  title                 String
+  lastInspectionDate    DateTime?         @map("last_inspection_date")
+  locationHint          String?           @map("location_hint")
+  suggestedObjectTypeId String?           @map("suggested_object_type_id")
+  rawExtraction         Json?             @map("raw_extraction")
+  status                String            @default("draft")
+  matchedScanId         String?           @unique @map("matched_scan_id")
+  session               InventorySession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  priorReportFile       PriorReportFile?  @relation(fields: [priorReportFileId], references: [id], onDelete: SetNull)
+  suggestedObjectType   ObjectType?       @relation("DraftAssetSuggestedType", fields: [suggestedObjectTypeId], references: [id], onDelete: SetNull)
+  matchedScan           ScanRecord?       @relation("DraftMatchedScan", fields: [matchedScanId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId])
+  @@index([status])
+  @@map("draft_assets")
+}
+
+model ServiceCodeMapping {
+  id              String     @id @default(cuid())
+  objectTypeId    String     @map("object_type_id")
+  regime          String?
+  odooProductCode String     @map("odoo_product_code")
+  labelNl         String?    @map("label_nl")
+  active          Boolean    @default(true)
+  version         Int        @default(1)
+  objectType      ObjectType @relation(fields: [objectTypeId], references: [id], onDelete: Cascade)
+
+  @@map("service_code_mappings")
 }
 
 model ScanJob {

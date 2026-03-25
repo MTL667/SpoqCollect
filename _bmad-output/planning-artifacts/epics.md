@@ -1,10 +1,12 @@
 ---
 stepsCompleted: [1, 2, 3, 4]
-status: 'complete'
-completedAt: '2026-03-12'
+status: complete
+completedAt: '2026-03-25'
+workflow: create-epics-and-stories
 inputDocuments:
   - '_bmad-output/planning-artifacts/prd.md'
   - '_bmad-output/planning-artifacts/architecture.md'
+  - '_bmad-output/planning-artifacts/asset-uitbreiding-brand-veiligheid-odoo.md'
 ---
 
 # InventariSpoq - Epic Breakdown
@@ -12,6 +14,16 @@ inputDocuments:
 ## Overview
 
 This document provides the complete epic and story breakdown for InventariSpoq, decomposing the requirements from the PRD and Architecture into implementable stories.
+
+### Integratie: assetuitbreiding & Odoo (actief vanaf 2026-03-25)
+
+Gebruik bij **nieuwe stories, epic-splitsing en backlog-prioriteit** het document **`_bmad-output/planning-artifacts/asset-uitbreiding-brand-veiligheid-odoo.md`** naast PRD en Architecture. Daarin staan:
+
+- **Model:** assetverzameling → subassets → **diensten** (productcodes) → **Odoo-export** als volgende laag.
+- **UX-triggers:** `SESSION_START`, `ON_SCAN`, `SESSION_END`, `SESSION_END_NON_DOMESTIC`, `SESSION_END_IF_NO_ATEX`.
+- **Domeinen:** brand/noodverlichting, rookkoepels, blussers/haspels/hydranten/sprinklers, evacuatie, AED, elektriciteit (HSC/LS/ATEX/bliksem), gas, liften/hijs, milieu/druk/tankstations — met koppeling naar bestaande `ObjectType`-seed waar mogelijk.
+
+Stories voor integratie moeten expliciet verwijzen naar dat document tot PRD/architecture formeel zijn bijgewerkt.
 
 ## Requirements Inventory
 
@@ -45,6 +57,19 @@ This document provides the complete epic and story breakdown for InventariSpoq, 
 - FR26: System preserves the original AI classification alongside the inspector's final decision
 - FR27: System maintains session-level metadata: inspector, location, building type, start/end time, total count
 - FR28: System retains all photos linked to their respective scan records
+- FR29: System presents configurable session-start prompts based on building type (e.g. gemeenschappelijke delen for apartment/office)
+- FR30: System presents configurable on-scan prompts immediately after the inspector confirms an object type, when defined for that object type
+- FR31: System presents configurable session-end prompts (e.g. norm / goede werking / onbekend for applicable fire-safety and emergency-lighting domains)
+- FR32: System presents a session-end flow for non-domestic lightning (bliksem) inspection when the session scope requires it
+- FR33: If no ATEX-related object was scanned, the system offers a session-end ATEX zone capture (gasexplosief vs stofexplosief) before closing
+- FR34: Inspector can optionally link a scan record as a subasset of another scan record (parent-child hierarchy)
+- FR35: System persists structured answers for session-level and scan-level prompts for audit and export
+- FR36: Object type registry (seed/config) supports extended types and variants described in the domain specification (hydrants, lifts, tanks, etc.)
+- FR37: System maintains a configurable mapping from object type, attributes, and inspection regime to internal service/product codes
+- FR38: Backoffice can generate an Odoo-oriented export file from a completed session listing assets and derived service lines
+- FR39: Odoo export applies the mapping table so each service line carries the correct product code for ERP import
+- FR40: Mapping rows can be maintained via configuration (database or config file) without code changes for routine updates
+- FR41: When new vision-classifiable object types are added, AI classification prompts are updated to include them
 
 ### NonFunctional Requirements
 
@@ -66,6 +91,9 @@ This document provides the complete epic and story breakdown for InventariSpoq, 
 - NFR16: Photo storage scales with usage
 - NFR17: Docker container(s) on Easypanel
 - NFR18: Environment variables for API keys and configuration
+- NFR19: Session and on-scan prompts must not block the core scan pipeline beyond a single modal step; perceived scan cadence remains comparable to baseline
+- NFR20: Odoo-oriented export generation completes within 60 seconds for sessions up to 2,000 scan records (or a documented lower limit is communicated)
+- NFR21: Prompt definitions and mapping configuration are versioned or dated so exports remain reproducible for a given session
 
 ### Additional Requirements
 
@@ -79,6 +107,9 @@ This document provides the complete epic and story breakdown for InventariSpoq, 
 - @tanstack/react-virtual for virtualized lists
 - Multi-stage Dockerfile for single container deployment
 - JWT auth flow with Express middleware
+- Domain specification: `_bmad-output/planning-artifacts/asset-uitbreiding-brand-veiligheid-odoo.md` — session triggers (`SESSION_START`, `ON_SCAN`, `SESSION_END`, `SESSION_END_NON_DOMESTIC`, `SESSION_END_IF_NO_ATEX`), subassets, productcodes (norm vs goede werking), Odoo as second export layer
+- Prisma/schema extensions as needed: optional `parentScanId`, `promptAnswers` (JSON or normalized tables), `sessionContext` flags
+- Odoo export format to be aligned with customer ERP field spec (CSV/XLSX/XML — TBD in architecture follow-up)
 
 ### FR Coverage Map
 
@@ -112,8 +143,21 @@ This document provides the complete epic and story breakdown for InventariSpoq, 
 | FR26 | Epic 3 | Preserve AI classification |
 | FR27 | Epic 2 | Session-level metadata |
 | FR28 | Epic 3 | Retain photos |
+| FR29 | Epic 6 | Session-start prompts by building type |
+| FR30 | Epic 6 | On-scan prompts after type confirm |
+| FR31 | Epic 6 | Session-end prompts (norm / werking / onbekend) |
+| FR32 | Epic 6 | Session-end non-domestic lightning flow |
+| FR33 | Epic 6 | Session-end ATEX catch-up when no ATEX scan |
+| FR34 | Epic 6 | Parent-child subasset link |
+| FR35 | Epic 6 | Persist prompt answers |
+| FR36 | Epic 6 | Extended object types in registry/seed |
+| FR41 | Epic 6 | AI prompts for new vision types |
+| FR37 | Epic 7 | Service/product code mapping model |
+| FR38 | Epic 7 | Odoo-oriented export generation |
+| FR39 | Epic 7 | Mapping applied in export |
+| FR40 | Epic 7 | Config-maintainable mappings |
 
-**Coverage:** 27/28 FRs covered. FR14 (admin object type config) explicitly deferred to post-MVP.
+**Coverage:** FR1–FR41 mapped to epics. **FR14** (in-app admin for object types) remains **deferred** post-MVP; FR36/41 use seed + deploy-time prompt updates until FR14 exists. **NFR19–NFR21** addressed in Epic 6–7 stories.
 
 ## Epic List
 
@@ -136,6 +180,14 @@ Backoffice can generate a Heli OM-compliant 29-column Excel export that uploads 
 ### Epic 5: Client Report Export
 Backoffice can generate a professional bilingual client report with photos per object.
 **FRs covered:** FR20, FR21, FR22, FR23
+
+### Epic 6: Guided domain capture & extended assets
+Inspectors capture richer, compliance-aligned data through **timed prompts** (start of session, after confirming a scan, end of session), optional **parent-child links** between scans, and an **extended object-type catalog** with updated AI labels where needed. Delivers the domain rules from `asset-uitbreiding-brand-veiligheid-odoo.md` without replacing Heli/client exports.
+**FRs covered:** FR29, FR30, FR31, FR32, FR33, FR34, FR35, FR36, FR41
+
+### Epic 7: Service codes & Odoo handoff
+Backoffice produces an **Odoo-oriented export** of assets and **derived service lines** using a **configurable mapping** from object types, attributes, and inspection regime to product/service codes (e.g. norm vs goede werking).
+**FRs covered:** FR37, FR38, FR39, FR40
 
 ---
 
@@ -672,3 +724,244 @@ So that I can easily generate and share the report with the client.
 **Given** the report fails
 **When** an error occurs
 **Then** I see an error message with a retry option
+
+## Epic 6: Guided domain capture & extended assets
+
+Inspectors and the system together satisfy extended Belgian inspection-domain rules: prompts at the right moment, structured answers stored for export, optional hierarchy between scans, and catalog/AI updates for new asset types.
+
+### Story 6.1: Schema for prompts, answers & parent scan
+
+As a developer,
+I want persistent fields for session/scan prompt answers and optional parent-child scan links,
+So that guided flows and subassets can be stored without losing audit data (FR35, FR34).
+
+**Acceptance Criteria:**
+
+**Given** the Prisma schema is migrated
+**When** I inspect `InventorySession` and `ScanRecord` (or related tables)
+**Then** session-level prompt answers can be stored (JSON column or normalized `SessionPromptAnswer` rows) and `ScanRecord` may reference an optional `parentScanId` on the same session (FR35, FR34)
+
+**Given** a scan has `parentScanId` set
+**When** the parent is deleted or belongs to another session
+**Then** the API rejects the link with a validation error
+
+**Given** existing sessions without new fields
+**When** they are loaded in the app
+**Then** behavior is unchanged (nullable fields default to none)
+
+### Story 6.2: Session-start prompt engine (building-type rules)
+
+As an inspector,
+I want to answer short start-of-session questions when the building type requires them (e.g. gemeenschappelijke delen),
+So that the inventory scope is explicit before I scan (FR29).
+
+**Acceptance Criteria:**
+
+**Given** I start or open a session with building type Appartement or Kantoor (config-driven list)
+**When** the session enters the active scan flow for the first time
+**Then** I see the configured session-start questionnaire before I can add the first scan (FR29)
+
+**Given** building types without configured start prompts
+**When** I start a session
+**Then** no extra start questionnaire is shown
+
+**Given** I complete the start questionnaire
+**When** I save
+**Then** answers are persisted on the session and visible in session metadata API (FR35)
+
+### Story 6.3: On-scan prompt engine (config per object type)
+
+As an inspector,
+I want follow-up questions right after I confirm certain object types (e.g. personenlift interval, bliksem daalleidingen),
+So that critical attributes are captured at scan time (FR30).
+
+**Acceptance Criteria:**
+
+**Given** configuration maps object type IDs to a question set (versioned per NFR21)
+**When** I confirm a type that has on-scan prompts
+**Then** a modal or step presents those questions before the scan is finalized (FR30)
+
+**Given** I dismiss or complete on-scan prompts
+**When** the scan is saved
+**Then** answers are stored on the scan record (FR35)
+
+**Given** an object type has no on-scan configuration
+**When** I confirm the type
+**Then** the flow matches current behavior (no extra step)
+
+**Given** at least three pilot types from the domain doc are configured (e.g. Personenlift, Bliksemafleider, Heftruck)
+**When** QA walks through each
+**Then** the correct questions appear and persist (pilot coverage for FR30)
+
+### Story 6.4: Session-end & closing flows (norm, bliksem, ATEX)
+
+As an inspector,
+I want guided steps when I close the session for domain-specific checks,
+So that norm/goede werking, non-domestic lightning, and ATEX catch-up are not forgotten (FR31, FR32, FR33).
+
+**Acceptance Criteria:**
+
+**Given** I tap complete/close session
+**When** session-end prompts are configured for fire/emergency lighting domains
+**Then** I must complete the norm / goede werking / onbekend (or equivalent) flow before the session status is completed (FR31)
+
+**Given** the session is marked as requiring non-domestic lightning capture
+**When** I close the session
+**Then** the bliksem block appears and answers are stored on the session (FR32)
+
+**Given** no scan in the session has an ATEX-related object type (config-driven list)
+**When** I attempt to complete the session
+**Then** I see the ATEX catch-up question (gas vs stof vs geen) and the answer is stored (FR33)
+
+**Given** at least one ATEX-related scan exists
+**When** I close the session
+**Then** the ATEX catch-up block is skipped (FR33)
+
+### Story 6.5: Subasset linking in the UI
+
+As an inspector,
+I want to mark a scan as belonging under another scan (e.g. component under branddetectie),
+So that the asset hierarchy matches the building reality (FR34).
+
+**Acceptance Criteria:**
+
+**Given** I view a scan in session detail
+**When** I choose “Koppel aan bovenliggend object”
+**Then** I can pick another scan from the same session as parent (FR34)
+
+**Given** a parent is set
+**When** I view the child scan
+**Then** the parent is shown and the link is included in session export APIs (preparation for Epic 7)
+
+**Given** I clear the parent link
+**When** I save
+**Then** `parentScanId` is null and history remains auditable (optional soft log post-MVP)
+
+### Story 6.6: Extended object types & AI prompt alignment
+
+As an admin/developer,
+I want new object types and variants from the domain specification in seed data with matching AI classification context,
+So that inspectors can select and recognize them in the field (FR36, FR41).
+
+**Acceptance Criteria:**
+
+**Given** the domain specification document
+**When** seed/migrations run
+**Then** agreed new types (e.g. hydrant variants, meters, verdeelborden — per product decision list) exist in `ObjectType` with NL/FR labels and building applicability (FR36)
+
+**Given** a new vision-classifiable type is added
+**When** the AI classification service builds its prompt
+**Then** that type appears in the allowed set sent to the model (FR41)
+
+**Given** Heli OM categories for new types
+**When** exports run
+**Then** new types map to agreed `heliOmCategory` values or documented placeholders until Heli mapping is updated
+
+### Story 6.7: Non-blocking UX & performance guardrails
+
+As an inspector,
+I want prompt steps to feel lightweight on iPad,
+So that field cadence stays acceptable (NFR19).
+
+**Acceptance Criteria:**
+
+**Given** I complete a scan with on-scan prompts
+**When** timings are measured on a reference iPad
+**Then** added latency vs baseline scan save is within an agreed budget (document target in implementation, e.g. max 2 seconds extra p95) (NFR19)
+
+**Given** prompt definitions are updated
+**When** a session started under an older definition is closed
+**Then** behavior is defined (use session’s captured definition version per NFR21)
+
+## Epic 7: Service codes & Odoo handoff
+
+Backoffice turns completed inventories into ERP-ready service lines without manual re-keying of product codes.
+
+### Story 7.1: Service/product code mapping model
+
+As a developer,
+I want a configurable mapping from object type + key attributes + regime to internal service codes,
+So that exports stay maintainable (FR37, FR40, NFR21).
+
+**Acceptance Criteria:**
+
+**Given** the database or config file approach chosen in architecture
+**When** I insert mapping rows (objectTypeId, optional attribute keys, regime, odooProductCode)
+**Then** the API can list and resolve mappings for a test session (FR37, FR40)
+
+**Given** duplicate conflicting rows
+**When** the admin saves configuration
+**Then** validation fails with a clear error
+
+**Given** mapping changes
+**When** I record the version or effective date
+**Then** completed sessions keep a reference to the mapping version used (NFR21)
+
+### Story 7.2: Derive service lines from session data
+
+As the system,
+I want to compute service lines from scans, prompt answers, and mapping rules,
+So that each completed session has a structured list ready for export (FR37, FR39).
+
+**Acceptance Criteria:**
+
+**Given** a completed session with scans and stored prompt answers
+**When** the derivation job runs
+**Then** each output line includes: asset reference (scan id), object type, resolved service code, quantity where applicable (FR37, FR39)
+
+**Given** a scan matches no mapping row
+**When** derivation runs
+**Then** the line is flagged as “unmapped” for backoffice review instead of silently dropping (FR39)
+
+**Given** subassets (parent-child)
+**When** derivation runs
+**Then** rules define whether children roll up or emit separate lines (document default in implementation)
+
+### Story 7.3: Odoo export file generation (server)
+
+As a backoffice user,
+I want a server-generated Odoo-oriented file for a completed session,
+So that I can import assets and services into Odoo (FR38, NFR20).
+
+**Acceptance Criteria:**
+
+**Given** a completed session with successful derivation
+**When** I call the Odoo export endpoint
+**Then** I receive a file in the agreed format (CSV/XLSX per architecture TBD) with headers documented in README or OpenAPI (FR38)
+
+**Given** a session with 2,000 scans
+**When** I request export
+**Then** generation completes within NFR20 limit or returns 413/422 with documented cap
+
+**Given** an incomplete session
+**When** I request Odoo export
+**Then** I receive HTTP 400
+
+### Story 7.4: Odoo export download UI
+
+As a backoffice user,
+I want to download the Odoo export next to Heli and client report,
+So that one visit yields all handoff files (FR38).
+
+**Acceptance Criteria:**
+
+**Given** I view a completed session
+**When** exports are available
+**Then** I see a “Download Odoo export” (or equivalent) control next to existing exports (FR38)
+
+**Given** derivation produced unmapped lines
+**When** I download
+**Then** I see a warning or companion summary listing unmapped items (FR39)
+
+**Given** export fails
+**When** an error occurs
+**Then** I see a message with retry and support reference
+
+---
+
+## Workflow validation (create-epics-and-stories — 2026-03-25)
+
+- **FR coverage:** FR1–FR41 each appear in the coverage map and in at least one story’s intent; FR14 explicitly deferred.
+- **Epic independence:** Epics 1–5 remain shippable without 6–7; Epic 6 adds domain depth without requiring Odoo file; Epic 7 consumes Epic 6 data structures but Epic 6 remains useful for Heli/report quality via richer attributes.
+- **Story ordering:** Within Epic 6 and 7, stories only depend on earlier numbered stories in the same epic (schema before UI; mapping model before derivation; derivation before file; file before download UI).
+- **Stakeholder doc:** All new scope traces to `asset-uitbreiding-brand-veiligheid-odoo.md` and PRD supplementary section.

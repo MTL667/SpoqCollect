@@ -1,4 +1,4 @@
-import { useExportHeliOm, useExportReport } from './use-export';
+import { useExportHeliOm, useExportOdoo, useExportReport } from './use-export';
 
 interface ExportViewProps {
   sessionId: string;
@@ -9,6 +9,7 @@ interface ExportViewProps {
 export default function ExportView({ sessionId, clientAddress: label, status }: ExportViewProps) {
   const heliExport = useExportHeliOm(sessionId, label);
   const reportExport = useExportReport(sessionId, label);
+  const odooExport = useExportOdoo(sessionId, label);
 
   if (status !== 'completed') return null;
 
@@ -56,6 +57,27 @@ export default function ExportView({ sessionId, clientAddress: label, status }: 
           <p className="text-red-600 text-sm">
             {reportExport.error.message}{' '}
             <button onClick={() => reportExport.mutate()} className="underline">Opnieuw</button>
+          </p>
+        )}
+
+        <button
+          onClick={() => odooExport.mutate()}
+          disabled={odooExport.isPending}
+          className="w-full py-2 border border-gray-800 text-gray-900 font-medium rounded-md hover:bg-gray-50 disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {odooExport.isPending ? (
+            <>
+              <span className="animate-spin h-4 w-4 border-2 border-gray-800 border-t-transparent rounded-full" />
+              Odoo CSV...
+            </>
+          ) : (
+            'Download Odoo CSV'
+          )}
+        </button>
+        {odooExport.isError && (
+          <p className="text-red-600 text-sm">
+            {odooExport.error.message}{' '}
+            <button onClick={() => odooExport.mutate()} className="underline">Opnieuw</button>
           </p>
         )}
       </div>

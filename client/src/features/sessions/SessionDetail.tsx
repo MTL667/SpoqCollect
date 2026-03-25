@@ -1,14 +1,23 @@
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { useSession, useCompleteSession, useReopenSession, useCreateLocation, useCreateFloor, formatAddress } from './use-sessions';
+import {
+  useSession,
+  useCompleteSession,
+  useReopenSession,
+  useCreateLocation,
+  useCreateFloor,
+  formatAddress,
+} from './use-sessions';
 import type { LocationItem, FloorItem, ScanRecordItem } from './use-sessions';
-import { useUpdateQuantity, useManualAdd } from '../scan/use-scan';
+import { useUpdateQuantity, useManualAdd, usePatchScan } from '../scan/use-scan';
 import { apiClient } from '../../lib/api-client';
 import PhotoThumbnail from '../../shared/components/PhotoThumbnail';
-import ConfirmDialog from '../../shared/components/ConfirmDialog';
 import ExportView from '../export/ExportView';
 import CameraView from '../scan/CameraView';
+import { usePromptCatalog } from '../prompts/use-prompt-catalog';
+import SessionCompleteWizard from '../prompts/SessionCompleteWizard';
+import DraftAssetsPanel from '../prior-reports/DraftAssetsPanel';
 
 export default function SessionDetail() {
   const { id } = useParams<{ id: string }>();
@@ -17,7 +26,9 @@ export default function SessionDetail() {
   const completeSession = useCompleteSession(id!);
   const reopenSession = useReopenSession(id!);
   const createLocation = useCreateLocation(id!);
-  const [showConfirm, setShowConfirm] = useState(false);
+  const { data: promptCatalog, refetch: refetchPromptCatalog } = usePromptCatalog(id);
+  const [showCompleteWizard, setShowCompleteWizard] = useState(false);
+  const [completeWizardError, setCompleteWizardError] = useState<string | null>(null);
   const [newLocationName, setNewLocationName] = useState('');
   const [showAddLocation, setShowAddLocation] = useState(false);
 
@@ -60,7 +71,11 @@ export default function SessionDetail() {
                 Scannen
               </button>
               <button
-                onClick={() => setShowConfirm(true)}
+                onClick={() => {
+                  setCompleteWizardError(null);
+                  refetchPromptCatalog();
+                  setShowCompleteWizard(true);
+                }}
                 className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
               >
                 Sessie voltooien
@@ -83,6 +98,12 @@ export default function SessionDetail() {
       </div>
 
       <div className="flex-1 overflow-auto p-4 space-y-4">
+        <DraftAssetsPanel
+          sessionId={session.id}
+          isActive={isActive}
+          confirmedScans={session.scanRecords.filter((r) => r.status === 'confirmed')}
+        />
+
         {session.locations.length === 0 && totalScans === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <p className="text-lg">Nog geen locaties</p>
@@ -90,7 +111,13 @@ export default function SessionDetail() {
           </div>
         ) : (
           session.locations.map((loc) => (
-            <LocationSection key={loc.id} location={loc} sessionId={session.id} isActive={isActive} />
+            <LocationSection
+              key={loc.id}
+              location={loc}
+              sessionId={session.id}
+              isActive={isActive}
+              sessionScanRecords={session.scanRecords}
+            />
           ))
         )}
 
@@ -133,20 +160,35 @@ export default function SessionDetail() {
         )}
       </div>
 
-      <ConfirmDialog
-        open={showConfirm}
-        title="Sessie voltooien"
-        message={`Weet u zeker dat u deze sessie wilt voltooien? Er zijn ${totalScans} objecten gescand.`}
-        confirmLabel="Voltooien"
-        onConfirm={() => completeSession.mutate()}
-        onCancel={() => setShowConfirm(false)}
+      <SessionCompleteWizard
+        open={showCompleteWizard}
+        catalog={promptCatalog}
+        onClose={() => setShowCompleteWizard(false)}
+        onSubmit={(payload) => {
+          setCompleteWizardError(null);
+          completeSession.mutate(payload, {
+            onError: (e: unknown) =>
+              setCompleteWizardError(e instanceof Error ? e.message : 'Sessie voltooien mislukt'),
+          });
+        }}
         isLoading={completeSession.isPending}
+        errorMessage={completeWizardError}
       />
     </div>
   );
 }
 
-function LocationSection({ location, sessionId, isActive }: { location: LocationItem; sessionId: string; isActive: boolean }) {
+function LocationSection({
+  location,
+  sessionId,
+  isActive,
+  sessionScanRecords,
+}: {
+  location: LocationItem;
+  sessionId: string;
+  isActive: boolean;
+  sessionScanRecords: ScanRecordItem[];
+}) {
   const createFloorMutation = useCreateFloor(sessionId, location.id);
   const [newFloorName, setNewFloorName] = useState('');
   const [showAddFloor, setShowAddFloor] = useState(false);
@@ -174,6 +216,7 @@ function LocationSection({ location, sessionId, isActive }: { location: Location
           isActive={isActive}
           sessionId={sessionId}
           allRecordsInLocation={location.floors.flatMap((f) => f.scanRecords)}
+          sessionScanRecords={sessionScanRecords}
         />
       ))}
 
@@ -222,14 +265,23 @@ function LocationSection({ location, sessionId, isActive }: { location: Location
   );
 }
 
-function FloorSection({ floor, isActive, sessionId, allRecordsInLocation }: {
+function FloorSection({
+  floor,
+  isActive,
+  sessionId,
+  allRecordsInLocation,
+  sessionScanRecords,
+}: {
   floor: FloorItem;
   isActive: boolean;
   sessionId: string;
   allRecordsInLocation: ScanRecordItem[];
+  sessionScanRecords: ScanRecordItem[];
 }) {
   const updateQuantity = useUpdateQuantity();
   const manualAdd = useManualAdd(sessionId);
+  const patchScan = usePatchScan(sessionId);
+  const [parentPickerFor, setParentPickerFor] = useState<string | null>(null);
   const [showManualAdd, setShowManualAdd] = useState(false);
   const [manualStep, setManualStep] = useState<'pick-type' | 'camera' | 'quantity'>('pick-type');
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
@@ -331,21 +383,30 @@ function FloorSection({ floor, isActive, sessionId, allRecordsInLocation }: {
             </p>
           </div>
           {isActive && record.status === 'confirmed' ? (
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                onClick={() => handleQuantityChange(record.id, record.quantity, -1)}
-                disabled={record.quantity <= 1}
-                className="w-7 h-7 rounded-full bg-gray-100 text-sm font-bold text-gray-600 hover:bg-gray-200 disabled:opacity-30"
-              >
-                −
-              </button>
-              <span className="text-sm font-bold text-gray-900 w-5 text-center tabular-nums">{record.quantity}</span>
-              <button
-                onClick={() => handleQuantityChange(record.id, record.quantity, 1)}
-                className="w-7 h-7 rounded-full bg-blue-100 text-sm font-bold text-blue-700 hover:bg-blue-200"
-              >
-                +
-              </button>
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setParentPickerFor(record.id)}
+                  className="text-xs text-blue-600 hover:underline px-1"
+                >
+                  {record.parentScanId ? 'Parent' : 'Koppel'}
+                </button>
+                <button
+                  onClick={() => handleQuantityChange(record.id, record.quantity, -1)}
+                  disabled={record.quantity <= 1}
+                  className="w-7 h-7 rounded-full bg-gray-100 text-sm font-bold text-gray-600 hover:bg-gray-200 disabled:opacity-30"
+                >
+                  −
+                </button>
+                <span className="text-sm font-bold text-gray-900 w-5 text-center tabular-nums">{record.quantity}</span>
+                <button
+                  onClick={() => handleQuantityChange(record.id, record.quantity, 1)}
+                  className="w-7 h-7 rounded-full bg-blue-100 text-sm font-bold text-blue-700 hover:bg-blue-200"
+                >
+                  +
+                </button>
+              </div>
             </div>
           ) : (
             <div className="flex items-center gap-2 shrink-0">
@@ -444,6 +505,47 @@ function FloorSection({ floor, isActive, sessionId, allRecordsInLocation }: {
         >
           + Object toevoegen
         </button>
+      )}
+
+      {parentPickerFor && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-sm w-full max-h-[70vh] overflow-y-auto p-4">
+            <h3 className="font-semibold text-gray-900 mb-2">Bovenliggend object</h3>
+            <p className="text-xs text-gray-500 mb-3">Kies een andere scan in deze sessie als parent (subasset).</p>
+            <button
+              type="button"
+              className="w-full text-left py-2 px-2 text-sm border-b border-gray-100 hover:bg-gray-50"
+              onClick={() => {
+                patchScan.mutate({ scanId: parentPickerFor, parentScanId: null });
+                setParentPickerFor(null);
+              }}
+            >
+              Geen parent
+            </button>
+            {sessionScanRecords
+              .filter((r) => r.id !== parentPickerFor && r.status === 'confirmed')
+              .map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  className="w-full text-left py-2 px-2 text-sm border-b border-gray-50 hover:bg-blue-50"
+                  onClick={() => {
+                    patchScan.mutate({ scanId: parentPickerFor, parentScanId: r.id });
+                    setParentPickerFor(null);
+                  }}
+                >
+                  {r.confirmedType?.nameNl ?? r.id.slice(0, 8)}
+                </button>
+              ))}
+            <button
+              type="button"
+              className="w-full mt-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-md"
+              onClick={() => setParentPickerFor(null)}
+            >
+              Sluiten
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

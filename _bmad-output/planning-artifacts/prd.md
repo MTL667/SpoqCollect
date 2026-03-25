@@ -4,11 +4,12 @@ inputDocuments:
   - '_bmad-output/brainstorming/brainstorming-session-2026-03-12-1300.md'
   - 'Upload all inventaris.xlsx'
   - 'upload heli met handleiding.xlsx'
+  - '_bmad-output/planning-artifacts/asset-uitbreiding-brand-veiligheid-odoo.md'
 documentCounts:
   briefs: 0
   research: 0
   brainstorming: 1
-  projectDocs: 0
+  projectDocs: 1
   excelTemplates: 2
 classification:
   projectType: 'Web App (PWA)'
@@ -51,6 +52,10 @@ No existing tool combines AI-powered object recognition with fire safety and ins
 | **Core Dependency** | LLM/AI vision for object recognition (OpenAI Vision API) |
 | **Bilingual** | Dutch and French |
 | **Deployment** | Dockerized on Easypanel, company-owned server |
+
+### Supplementary domain specification (BMAD-integrated, 2026-03-25)
+
+The file **`_bmad-output/planning-artifacts/asset-uitbreiding-brand-veiligheid-odoo.md`** is listed in this PRD’s `inputDocuments` and wired into BMAD agent memories. It extends the domain toward **asset hierarchies (building / installation / subassets)**, **session-scoped prompts** (`SESSION_START`, `ON_SCAN`, `SESSION_END`, etc.), and a planned **Odoo-oriented services layer** (product codes for norm vs. good operation, and related inspections). Until those items are merged into formal FRs below, **epics and implementation work for integration should treat that document as the working source of truth** alongside this PRD.
 
 ## Success Criteria
 

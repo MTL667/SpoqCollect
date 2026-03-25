@@ -4,9 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import CameraView from './CameraView';
 import ClassificationResult from './ClassificationResult';
 import { useUploadScan, useConfirmScan } from './use-scan';
-import { useSession, useCreateLocation, useCreateFloor } from '../sessions/use-sessions';
+import { useSession, useCreateLocation, useCreateFloor, usePatchSessionPrompts } from '../sessions/use-sessions';
 import { apiClient } from '../../lib/api-client';
 import type { LocationItem } from '../sessions/use-sessions';
+import { usePromptCatalog, type PromptFieldDef } from '../prompts/use-prompt-catalog';
+import { DynamicPromptFields } from '../prompts/DynamicPromptFields';
 
 type FlowStep = 'pick-floor' | 'camera' | 'uploading' | 'classifying' | 'confirm';
 
@@ -26,6 +28,13 @@ export default function ScanFlow() {
   const { data: session, refetch: refetchSession } = useSession(sessionId!);
   const uploadScan = useUploadScan(sessionId!);
   const confirmScan = useConfirmScan();
+  const patchPrompts = usePatchSessionPrompts(sessionId!);
+  const {
+    data: catalog,
+    isPending: catalogPending,
+    isError: catalogError,
+    refetch: refetchCatalog,
+  } = usePromptCatalog(sessionId);
 
   const [step, setStep] = useState<FlowStep>('pick-floor');
   const [scanState, setScanState] = useState<ScanState>({
@@ -37,6 +46,16 @@ export default function ScanFlow() {
     candidates: [],
     quantity: 1,
   });
+
+  const [sessionStartValues, setSessionStartValues] = useState<Record<string, string>>({});
+  const [pendingOnScan, setPendingOnScan] = useState<{ typeId: string; fields: PromptFieldDef[] } | null>(null);
+  const [onScanValues, setOnScanValues] = useState<Record<string, string>>({});
+
+  const sessionPrompt = catalog?.sessionPromptData as { startCompleted?: boolean } | undefined;
+  const needSessionStart =
+    !!catalog &&
+    catalog.sessionStartFields.length > 0 &&
+    sessionPrompt?.startCompleted !== true;
 
   const { data: objectTypes } = useQuery({
     queryKey: ['object-types', session?.buildingTypeId],
@@ -109,10 +128,15 @@ export default function ScanFlow() {
     setStep('confirm');
   }
 
-  function handleConfirm(typeId: string) {
+  function runConfirm(typeId: string, onScanPromptAnswers?: Record<string, unknown>) {
     if (!scanState.scanRecordId) return;
     confirmScan.mutate(
-      { scanId: scanState.scanRecordId, confirmedTypeId: typeId, quantity: scanState.quantity },
+      {
+        scanId: scanState.scanRecordId,
+        confirmedTypeId: typeId,
+        quantity: scanState.quantity,
+        ...(onScanPromptAnswers !== undefined ? { onScanPromptAnswers } : {}),
+      },
       {
         onSuccess: () => {
           setScanState((prev) => ({
@@ -124,9 +148,135 @@ export default function ScanFlow() {
             candidates: [],
             quantity: 1,
           }));
+          setPendingOnScan(null);
+          setOnScanValues({});
           setStep('camera');
         },
       },
+    );
+  }
+
+  function handleConfirm(typeId: string) {
+    const nameNl = objectTypes?.find((t) => t.id === typeId)?.nameNl;
+    const fields = nameNl ? catalog?.onScanPromptsByTypeNl[nameNl] : undefined;
+    if (fields && fields.length > 0) {
+      const init: Record<string, string> = {};
+      for (const f of fields) init[f.key] = '';
+      setOnScanValues(init);
+      setPendingOnScan({ typeId, fields });
+      return;
+    }
+    runConfirm(typeId);
+  }
+
+  function submitSessionStart() {
+    patchPrompts.mutate(
+      { start: { ...sessionStartValues }, startCompleted: true },
+      {
+        onSuccess: () => {
+          refetchCatalog();
+          refetchSession();
+        },
+      },
+    );
+  }
+
+  if (catalogPending && sessionId) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-600">Sessie laden...</p>
+      </div>
+    );
+  }
+
+  if ((catalogError || !catalog) && sessionId) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-3 p-6">
+        <p className="text-red-600 text-center">Kon vragenlijst niet laden.</p>
+        <button
+          type="button"
+          onClick={() => refetchCatalog()}
+          className="px-4 py-2 bg-blue-700 text-white rounded-md"
+        >
+          Opnieuw
+        </button>
+        <button type="button" onClick={() => navigate(`/sessions/${sessionId}`)} className="text-sm text-blue-700 underline">
+          Terug naar sessie
+        </button>
+      </div>
+    );
+  }
+
+  if (needSessionStart && catalog) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4">
+        <div className="max-w-md mx-auto bg-white rounded-lg shadow p-4 mt-8">
+          <h2 className="text-lg font-bold text-gray-900 mb-2">Start van de sessie</h2>
+          <p className="text-sm text-gray-600 mb-4">Enkele vragen voor dit gebouwtype.</p>
+          <DynamicPromptFields
+            fields={catalog.sessionStartFields}
+            values={sessionStartValues}
+            onChange={(k, v) => setSessionStartValues((p) => ({ ...p, [k]: v }))}
+          />
+          <div className="flex gap-2 mt-6">
+            <button
+              type="button"
+              onClick={() => navigate(`/sessions/${sessionId}`)}
+              className="flex-1 py-2 border border-gray-300 rounded-md text-gray-700"
+            >
+              Terug
+            </button>
+            <button
+              type="button"
+              disabled={patchPrompts.isPending}
+              onClick={submitSessionStart}
+              className="flex-1 py-2 bg-blue-700 text-white font-medium rounded-md disabled:opacity-50"
+            >
+              {patchPrompts.isPending ? 'Opslaan...' : 'Verder naar scannen'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (pendingOnScan) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-4">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Extra gegevens</h2>
+          <DynamicPromptFields
+            fields={pendingOnScan.fields}
+            values={onScanValues}
+            onChange={(k, v) => setOnScanValues((p) => ({ ...p, [k]: v }))}
+          />
+          <div className="flex gap-2 mt-6">
+            <button
+              type="button"
+              onClick={() => { setPendingOnScan(null); setOnScanValues({}); }}
+              className="flex-1 py-2 border border-gray-300 rounded-md"
+            >
+              Terug
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const answers: Record<string, unknown> = { ...onScanValues };
+                for (const f of pendingOnScan.fields) {
+                  if (f.type === 'number' && answers[f.key] !== '') {
+                    answers[f.key] = Number(answers[f.key]);
+                  }
+                }
+                runConfirm(pendingOnScan.typeId, answers);
+              }}
+              disabled={confirmScan.isPending}
+              className="flex-1 py-2 bg-green-600 text-white font-medium rounded-md disabled:opacity-50"
+            >
+              Opslaan
+            </button>
+          </div>
+        </div>
+      </div>
     );
   }
 

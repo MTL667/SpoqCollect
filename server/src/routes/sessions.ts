@@ -1,5 +1,13 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
+import {
+  ON_SCAN_PROMPTS_BY_TYPE_NL,
+  SESSION_END_ATEX_FIELDS,
+  SESSION_END_FIRE_LIGHTING_FIELDS,
+  SESSION_END_LIGHTNING_FIELDS,
+  sessionStartFieldsForBuilding,
+} from '../config/prompt-catalog.js';
+import { getSessionCompleteBlockers, mergeSessionPromptPatch } from '../services/session-prompts.js';
 
 export const sessionsRouter = Router();
 
@@ -50,7 +58,7 @@ sessionsRouter.get('/', async (req, res, next) => {
       where: { inspectorId: req.inspector!.inspectorId },
       include: {
         buildingType: { select: { id: true, nameNl: true } },
-        _count: { select: { scanRecords: true } },
+        _count: { select: { scanRecords: true, draftAssets: true, priorReportFiles: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -75,7 +83,7 @@ sessionsRouter.get('/:id', async (req, res, next) => {
               orderBy: { sortOrder: 'asc' },
               include: {
                 scanRecords: {
-                  include: { confirmedType: { select: { nameNl: true } } },
+                  include: { confirmedType: { select: { id: true, nameNl: true } } },
                   orderBy: { createdAt: 'asc' },
                 },
               },
@@ -83,9 +91,10 @@ sessionsRouter.get('/:id', async (req, res, next) => {
           },
         },
         scanRecords: {
-          include: { confirmedType: { select: { nameNl: true } } },
+          include: { confirmedType: { select: { id: true, nameNl: true } } },
           orderBy: { createdAt: 'desc' },
         },
+        _count: { select: { draftAssets: true, priorReportFiles: true } },
       },
     });
 
@@ -105,10 +114,109 @@ sessionsRouter.get('/:id', async (req, res, next) => {
   }
 });
 
+/** Prompt catalog + completion checklist for client (Epic 6). */
+sessionsRouter.get('/:id/prompts/catalog', async (req, res, next) => {
+  try {
+    const session = await prisma.inventorySession.findUnique({
+      where: { id: req.params.id },
+      include: {
+        buildingType: true,
+        scanRecords: { select: { confirmedType: { select: { nameNl: true } } } },
+      },
+    });
+
+    if (!session) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Session not found' } });
+      return;
+    }
+
+    if (session.inspectorId !== req.inspector!.inspectorId) {
+      res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not your session' } });
+      return;
+    }
+
+    const nameNl = session.buildingType.nameNl;
+    const sessionStartFields = sessionStartFieldsForBuilding(nameNl);
+    const data = session.sessionPromptData as Record<string, unknown> | null;
+
+    const scans = session.scanRecords.map((r) => ({ confirmedType: r.confirmedType }));
+    const completeBlockers =
+      session.status === 'active'
+        ? getSessionCompleteBlockers({
+            buildingTypeNameNl: nameNl,
+            sessionPromptData: session.sessionPromptData,
+            scans,
+          })
+        : [];
+
+    res.json({
+      data: {
+        sessionStartFields: sessionStartFields ?? [],
+        sessionEndFireFields: SESSION_END_FIRE_LIGHTING_FIELDS,
+        sessionEndLightningFields: SESSION_END_LIGHTNING_FIELDS,
+        sessionEndAtexFields: SESSION_END_ATEX_FIELDS,
+        sessionPromptData: data,
+        completeBlockers,
+        onScanPromptsByTypeNl: { ...ON_SCAN_PROMPTS_BY_TYPE_NL },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+sessionsRouter.patch('/:id/prompts', async (req, res, next) => {
+  try {
+    const session = await prisma.inventorySession.findUnique({ where: { id: req.params.id } });
+    if (!session) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Session not found' } });
+      return;
+    }
+    if (session.inspectorId !== req.inspector!.inspectorId) {
+      res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not your session' } });
+      return;
+    }
+    if (session.status !== 'active') {
+      res.status(400).json({ error: { code: 'SESSION_COMPLETED', message: 'Session is not active' } });
+      return;
+    }
+
+    const body = req.body as {
+      start?: Record<string, unknown>;
+      startCompleted?: boolean;
+      end?: Record<string, unknown>;
+      lightning?: Record<string, unknown>;
+      atex?: Record<string, unknown>;
+    };
+
+    const merged = mergeSessionPromptPatch(session.sessionPromptData, {
+      start: body.start,
+      startCompleted: body.startCompleted,
+      end: body.end,
+      lightning: body.lightning,
+      atex: body.atex,
+    });
+
+    const updated = await prisma.inventorySession.update({
+      where: { id: req.params.id },
+      data: { sessionPromptData: merged },
+      include: { buildingType: true },
+    });
+
+    res.json({ data: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
 sessionsRouter.patch('/:id/complete', async (req, res, next) => {
   try {
     const session = await prisma.inventorySession.findUnique({
       where: { id: req.params.id },
+      include: {
+        buildingType: true,
+        scanRecords: { select: { confirmedType: { select: { nameNl: true } } } },
+      },
     });
 
     if (!session) {
@@ -128,9 +236,46 @@ sessionsRouter.patch('/:id/complete', async (req, res, next) => {
       return;
     }
 
+    const body = req.body as {
+      end?: Record<string, unknown>;
+      lightning?: Record<string, unknown>;
+      atex?: Record<string, unknown>;
+    };
+
+    let promptData = session.sessionPromptData;
+    if (body.end || body.lightning || body.atex) {
+      promptData = mergeSessionPromptPatch(promptData, {
+        end: body.end,
+        lightning: body.lightning,
+        atex: body.atex,
+      });
+    }
+
+    const scans = session.scanRecords.map((r) => ({ confirmedType: r.confirmedType }));
+    const blockers = getSessionCompleteBlockers({
+      buildingTypeNameNl: session.buildingType.nameNl,
+      sessionPromptData: promptData,
+      scans,
+    });
+
+    if (blockers.length > 0) {
+      res.status(400).json({
+        error: {
+          code: 'SESSION_PROMPTS_INCOMPLETE',
+          message: 'Sessievragen zijn onvolledig',
+          details: { blockers },
+        },
+      });
+      return;
+    }
+
     const updated = await prisma.inventorySession.update({
       where: { id: req.params.id },
-      data: { status: 'completed', completedAt: new Date() },
+      data: {
+        status: 'completed',
+        completedAt: new Date(),
+        ...(body.end || body.lightning || body.atex ? { sessionPromptData: promptData as object } : {}),
+      },
       include: { buildingType: true },
     });
 

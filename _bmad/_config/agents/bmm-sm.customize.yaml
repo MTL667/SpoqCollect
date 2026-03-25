@@ -17,11 +17,8 @@ persona:
 critical_actions: []
 
 # Add persistent memories for the agent
-memories: []
-# Example:
-# memories:
-#   - "User prefers detailed technical explanations"
-#   - "Current project uses React and TypeScript"
+memories:
+  - "InventariSpoq — asset/Odoo-integratie (2026-03): sprint planning en story-prioriteit; relevante context in _bmad-output/planning-artifacts/asset-uitbreiding-brand-veiligheid-odoo.md en epics.md sectie Integratie."
 
 # Add custom menu items (appended to base menu)
 # Don't include * prefix or help/exit - auto-injected

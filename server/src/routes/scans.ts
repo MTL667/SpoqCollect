@@ -7,6 +7,74 @@ import { logger } from '../lib/logger.js';
 
 export const scansRouter = Router();
 
+/** Update scan parent link or on-scan answers (Epic 6). */
+scansRouter.patch('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const scanId = req.params.id as string;
+    const body = req.body as {
+      parentScanId?: string | null;
+      onScanPromptAnswers?: Record<string, unknown>;
+    };
+
+    if (body.parentScanId === undefined && body.onScanPromptAnswers === undefined) {
+      res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'parentScanId of onScanPromptAnswers vereist' } });
+      return;
+    }
+
+    const scan = await prisma.scanRecord.findUnique({
+      where: { id: scanId },
+      include: { session: true },
+    });
+
+    if (!scan) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Scan record not found' } });
+      return;
+    }
+
+    if (scan.inspectorId !== req.inspector!.inspectorId) {
+      res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not your scan' } });
+      return;
+    }
+
+    const data: { parentScanId?: string | null; onScanPromptAnswers?: object } = {};
+
+    if (body.parentScanId !== undefined) {
+      if (body.parentScanId === null) {
+        data.parentScanId = null;
+      } else {
+        if (body.parentScanId === scanId) {
+          res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Scan kan niet zichzelf als parent hebben' } });
+          return;
+        }
+        const parent = await prisma.scanRecord.findUnique({ where: { id: body.parentScanId } });
+        if (!parent || parent.sessionId !== scan.sessionId) {
+          res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Ongeldige parent scan' } });
+          return;
+        }
+        data.parentScanId = body.parentScanId;
+      }
+    }
+
+    if (body.onScanPromptAnswers !== undefined) {
+      data.onScanPromptAnswers = body.onScanPromptAnswers;
+    }
+
+    await prisma.scanRecord.update({
+      where: { id: scanId },
+      data,
+    });
+
+    const updated = await prisma.scanRecord.findUnique({
+      where: { id: scanId },
+      include: { confirmedType: true, parentScan: { select: { id: true } } },
+    });
+
+    res.json({ data: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
 scansRouter.post('/:sessionId/scans', upload.single('photo'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const sessionId = req.params.sessionId as string;
@@ -150,7 +218,11 @@ scansRouter.post('/:sessionId/scans/manual', upload.single('photo'), async (req:
 
 scansRouter.patch('/:id/confirm', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { confirmedTypeId, quantity } = req.body as { confirmedTypeId?: string; quantity?: number };
+    const { confirmedTypeId, quantity, onScanPromptAnswers } = req.body as {
+      confirmedTypeId?: string;
+      quantity?: number;
+      onScanPromptAnswers?: Record<string, unknown>;
+    };
     const scanId = req.params.id as string;
 
     if (!confirmedTypeId) {
@@ -179,8 +251,9 @@ scansRouter.patch('/:id/confirm', async (req: Request, res: Response, next: Next
         quantity: quantity && quantity >= 1 ? quantity : 1,
         confirmedAt: new Date(),
         status: 'confirmed',
+        ...(onScanPromptAnswers !== undefined ? { onScanPromptAnswers } : {}),
       },
-      include: { confirmedType: true },
+      include: { confirmedType: true, parentScan: { select: { id: true } } },
     });
 
     res.json({ data: updated });

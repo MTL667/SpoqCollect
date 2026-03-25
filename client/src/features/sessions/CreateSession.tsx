@@ -1,11 +1,17 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { useCreateSession, useBuildingTypes } from './use-sessions';
+import { useUploadPriorReports } from '../prior-reports/use-prior-reports';
+import CameraView from '../scan/CameraView';
+
+type WizardStep = 'client' | 'reports';
 
 export default function CreateSession() {
   const navigate = useNavigate();
   const { data: buildingTypes, isLoading: btLoading } = useBuildingTypes();
   const createSession = useCreateSession();
+  const [step, setStep] = useState<WizardStep>('client');
+  const uploadReports = useUploadPriorReports();
 
   const [form, setForm] = useState({
     clientName: '',
@@ -16,6 +22,9 @@ export default function CreateSession() {
     city: '',
     buildingTypeId: '',
   });
+  const [reportFiles, setReportFiles] = useState<File[]>([]);
+  const [reportPhotoBlobs, setReportPhotoBlobs] = useState<Blob[]>([]);
+  const [reportCameraOpen, setReportCameraOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   function update(field: string, value: string) {
@@ -23,7 +32,7 @@ export default function CreateSession() {
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: '' }));
   }
 
-  function handleSubmit(e: FormEvent) {
+  function handleClientNext(e: FormEvent) {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
     if (!form.clientName.trim()) newErrors.clientName = 'Verplicht';
@@ -34,7 +43,10 @@ export default function CreateSession() {
     if (!form.buildingTypeId) newErrors.buildingTypeId = 'Verplicht';
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
+    setStep('reports');
+  }
 
+  function handleReportsSubmit() {
     createSession.mutate(
       {
         clientName: form.clientName.trim(),
@@ -46,17 +58,146 @@ export default function CreateSession() {
         buildingTypeId: form.buildingTypeId,
       },
       {
-        onSuccess: (session) => {
+        onSuccess: async (session) => {
+          const photoFiles = reportPhotoBlobs.map(
+            (blob, i) =>
+              new File([blob], `verslag-foto-${i + 1}.jpg`, {
+                type: blob.type && blob.type.startsWith('image/') ? blob.type : 'image/jpeg',
+              }),
+          );
+          const toUpload = [...reportFiles, ...photoFiles];
+          if (toUpload.length > 0) {
+            try {
+              await uploadReports.mutateAsync({ sessionId: session.id, files: toUpload });
+            } catch {
+              /* uploadReports.isError — navigatie toch */
+            }
+          }
           navigate(`/sessions/${session.id}`);
         },
       },
     );
   }
 
+  const busy = createSession.isPending || uploadReports.isPending;
+  const reportCount = reportFiles.length + reportPhotoBlobs.length;
+
+  if (reportCameraOpen) {
+    return (
+      <CameraView
+        onCapture={(blob) => {
+          setReportPhotoBlobs((prev) => [...prev, blob]);
+          setReportCameraOpen(false);
+        }}
+        onCancel={() => setReportCameraOpen(false)}
+      />
+    );
+  }
+
+  if (step === 'reports') {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <h1 className="text-2xl font-bold text-blue-800 mb-2">Vorige keuringsverslagen</h1>
+        <p className="text-gray-600 text-sm mb-6 max-w-lg">
+          Leg papieren of oude verslagen vast met de camera, of upload
+          een PDF. De inhoud (zoals bij OCB, Infravision, ASC, …) wordt gebruikt om concept-assets en
+          keuringsdata voor te bereiden — het hoeft geen PDF op uw toestel te zijn.
+        </p>
+
+        <div className="bg-white shadow rounded-lg p-6 max-w-lg space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Foto’s van verslagen (aanbevolen op locatie)
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setReportCameraOpen(true)}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
+              >
+                Foto maken
+              </button>
+            </div>
+            {reportPhotoBlobs.length > 0 && (
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {reportPhotoBlobs.map((blob, i) => (
+                  <ReportPhotoThumb
+                    key={`${i}-${blob.size}`}
+                    blob={blob}
+                    onRemove={() => setReportPhotoBlobs((prev) => prev.filter((_, idx) => idx !== i))}
+                  />
+                ))}
+              </ul>
+            )}
+            <p className="text-xs text-gray-500 mt-2">Meerdere pagina’s: telkens opnieuw «Foto maken».</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Of: PDF-bestanden (optioneel)
+            </label>
+            <input
+              type="file"
+              accept=".pdf,application/pdf"
+              multiple
+              onChange={(e) => setReportFiles(Array.from(e.target.files ?? []))}
+              className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 file:text-blue-700"
+            />
+            {reportFiles.length > 0 && (
+              <ul className="mt-2 text-xs text-gray-500 space-y-1">
+                {reportFiles.map((f) => (
+                  <li key={f.name + f.size}>{f.name}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <p className="text-xs text-gray-500">
+            PDF: doorzoekbare bestanden werken het best; gescande PDF’s kunnen weinig tekst bevatten — gebruik
+            dan liever foto’s. Foto’s worden met AI uitgelezen (helder, recht van voren).
+          </p>
+
+          <div className="flex flex-col gap-2 pt-2">
+            <button
+              type="button"
+              onClick={handleReportsSubmit}
+              disabled={busy}
+              className="w-full px-4 py-2 bg-blue-700 text-white font-medium rounded-md hover:bg-blue-800 disabled:opacity-50"
+            >
+              {busy
+                ? 'Bezig...'
+                : reportCount
+                  ? 'Sessie aanmaken & verslagen verwerken'
+                  : 'Sessie aanmaken zonder verslagen'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep('client')}
+              disabled={busy}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Terug
+            </button>
+          </div>
+
+          {createSession.isError && (
+            <p className="text-red-600 text-sm">{createSession.error.message}</p>
+          )}
+          {uploadReports.isError && (
+            <p className="text-amber-700 text-sm">
+              Sessie is aangemaakt maar upload mislukte: {uploadReports.error.message}. U kunt later opnieuw
+              uploaden vanuit de sessie (functie volgt) of doorgaan zonder.
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <h1 className="text-2xl font-bold text-blue-800 mb-6">Nieuwe sessie</h1>
-      <form onSubmit={handleSubmit} className="bg-white shadow rounded-lg p-6 max-w-lg space-y-4">
+      <form onSubmit={handleClientNext} className="bg-white shadow rounded-lg p-6 max-w-lg space-y-4">
         <Field label="Naam opdrachtgever" value={form.clientName} error={errors.clientName} onChange={(v) => update('clientName', v)} placeholder="Bedrijfsnaam / naam klant" />
 
         <div className="grid grid-cols-3 gap-3">
@@ -97,10 +238,9 @@ export default function CreateSession() {
         <div className="flex gap-3 pt-2">
           <button
             type="submit"
-            disabled={createSession.isPending}
-            className="px-4 py-2 bg-blue-700 text-white font-medium rounded-md hover:bg-blue-800 disabled:opacity-50"
+            className="px-4 py-2 bg-blue-700 text-white font-medium rounded-md hover:bg-blue-800"
           >
-            {createSession.isPending ? 'Aanmaken...' : 'Sessie aanmaken'}
+            Volgende: vorige verslagen
           </button>
           <button
             type="button"
@@ -110,12 +250,30 @@ export default function CreateSession() {
             Annuleren
           </button>
         </div>
-
-        {createSession.isError && (
-          <p className="text-red-600 text-sm">{createSession.error.message}</p>
-        )}
       </form>
     </div>
+  );
+}
+
+function ReportPhotoThumb({ blob, onRemove }: { blob: Blob; onRemove: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const u = URL.createObjectURL(blob);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [blob]);
+  return (
+    <li className="relative w-16 h-16 rounded border border-gray-200 overflow-hidden shrink-0">
+      {url ? <img src={url} alt="" className="w-full h-full object-cover" /> : null}
+      <button
+        type="button"
+        aria-label="Foto verwijderen"
+        onClick={onRemove}
+        className="absolute top-0 right-0 w-5 h-5 bg-black/60 text-white text-xs leading-5"
+      >
+        ×
+      </button>
+    </li>
   );
 }
 
