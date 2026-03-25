@@ -23,7 +23,8 @@ const styles = StyleSheet.create({
   footer: { position: 'absolute', bottom: 20, left: 30, right: 30, fontSize: 8, color: '#aaa', textAlign: 'center' },
 });
 
-function getPhotoPath(relativePath: string): string {
+function resolvePhotoAbsPath(relativePath: string | null | undefined): string | null {
+  if (relativePath == null || relativePath === '') return null;
   return path.join(config.STORAGE_PATH, relativePath);
 }
 
@@ -33,7 +34,7 @@ function formatAddr(s: { street: string; number: string; bus: string | null; pos
 
 interface ScanData {
   id: string;
-  photoPath: string;
+  photoPath: string | null;
   confirmedType: { nameNl: string; nameFr: string; heliOmCategory: string } | null;
   quantity: number;
   createdAt: Date;
@@ -99,8 +100,8 @@ function ClientReport({ session }: { session: SessionData }) {
                 <Text style={styles.floorHeader}>{floor.name}</Text>
                 {floor.scanRecords.map((record) => {
                   globalIndex++;
-                  const photoAbsPath = getPhotoPath(record.photoPath);
-                  const hasPhoto = fs.existsSync(photoAbsPath);
+                  const photoAbsPath = resolvePhotoAbsPath(record.photoPath);
+                  const hasPhoto = photoAbsPath !== null && fs.existsSync(photoAbsPath);
                   return (
                     <View key={record.id} style={styles.recordRow} wrap={false}>
                       {hasPhoto ? (
