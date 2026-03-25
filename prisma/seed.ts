@@ -43,6 +43,10 @@ const buildingTypes: BuildingTypeSeed[] = [
 const objectTypes: ObjectTypeSeed[] = [
   { nameNl: 'Veiligheidsverlichting', nameFr: '\u00c9clairage de s\u00e9curit\u00e9', heliOmCategory: 'VV', applicableBuildings: ALL_BUILDINGS },
   { nameNl: 'Branddetectiecentrale', nameFr: "Centrale de d\u00e9tection d'incendie", heliOmCategory: 'BD', applicableBuildings: ALL_BUILDINGS },
+  // Veldcomponenten branddetectie: sirene, rookmelder, handmelder/drukknop
+  { nameNl: 'Brandalarm sirene', nameFr: "Sir\u00e8ne d'alarme incendie", heliOmCategory: 'BD-SIR', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Rookmelder', nameFr: 'D\u00e9tecteur de fum\u00e9e', heliOmCategory: 'BD-DF', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Handmelder (drukknop)', nameFr: 'D\u00e9clencheur manuel / bouton-poussoir', heliOmCategory: 'BD-HM', applicableBuildings: ALL_BUILDINGS },
   { nameNl: 'Rookkoepels', nameFr: 'Coupoles de d\u00e9senfumage', heliOmCategory: 'RK', applicableBuildings: ALL_BUILDINGS },
   { nameNl: 'Brandblusser', nameFr: 'Extincteur', heliOmCategory: 'BB', applicableBuildings: ALL_BUILDINGS },
   { nameNl: 'Brandhaspel', nameFr: 'D\u00e9vidoir incendie', heliOmCategory: 'BH', applicableBuildings: ALL_BUILDINGS },
