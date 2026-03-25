@@ -51,9 +51,8 @@ const styles = StyleSheet.create({
   },
   colNl: { flex: 2.3, fontSize: 9, paddingRight: 4 },
   colFr: { flex: 2.3, fontSize: 9, color: '#444', paddingRight: 4 },
-  colCode: { flex: 0.9, fontSize: 9 },
-  colQty: { flex: 0.65, fontSize: 9, textAlign: 'right' },
-  colReg: { flex: 0.65, fontSize: 9, textAlign: 'right' },
+  colCode: { flex: 1, fontSize: 9 },
+  colQty: { flex: 0.85, fontSize: 9, textAlign: 'right' },
   th: { fontWeight: 'bold', fontSize: 9 },
 });
 
@@ -81,13 +80,12 @@ interface ObjectTypeAggregateRow {
   nameFr: string;
   heliOmCategory: string;
   totalStuks: number;
-  registraties: number;
 }
 
 function aggregateObjectTypes(records: ScanData[]): ObjectTypeAggregateRow[] {
   const map = new Map<
     string,
-    { nameNl: string; nameFr: string; heliOmCategory: string; totalStuks: number; registraties: number }
+    { nameNl: string; nameFr: string; heliOmCategory: string; totalStuks: number }
   >();
 
   for (const r of records) {
@@ -100,14 +98,12 @@ function aggregateObjectTypes(records: ScanData[]): ObjectTypeAggregateRow[] {
     const cur = map.get(key);
     if (cur) {
       cur.totalStuks += qty;
-      cur.registraties += 1;
     } else {
       map.set(key, {
         nameNl,
         nameFr,
         heliOmCategory,
         totalStuks: qty,
-        registraties: 1,
       });
     }
   }
@@ -140,29 +136,20 @@ interface SessionData {
   scanRecords: ScanData[];
 }
 
-function ObjectTypeSummaryTable({
-  rows,
-  grandTotalStuks,
-  grandTotalReg,
-}: {
-  rows: ObjectTypeAggregateRow[];
-  grandTotalStuks: number;
-  grandTotalReg: number;
-}) {
+function ObjectTypeSummaryTable({ rows, grandTotalStuks }: { rows: ObjectTypeAggregateRow[]; grandTotalStuks: number }) {
   return (
     <View style={styles.tableSection}>
       <Text style={styles.tableTitle}>Overzicht per objecttype / Vue par type d&apos;objet</Text>
       <Text style={styles.tableSubtitle}>
-        Totalen over de volledige sessie (som van stuks per type; registraties = aantal ingevoerde lijnen).
+        Totalen over de volledige sessie: som van het aantal stuks per objecttype.
         {' / '}
-        Totaux sur la session (somme des quantit&eacute;s; lignes = nombre d&apos;enregistrements).
+        Totaux sur la session : somme des quantit&eacute;s par type d&apos;objet.
       </Text>
       <View style={styles.tableHeaderRow}>
         <Text style={[styles.colNl, styles.th]}>Type (NL)</Text>
         <Text style={[styles.colFr, styles.th]}>Type (FR)</Text>
         <Text style={[styles.colCode, styles.th]}>Code</Text>
         <Text style={[styles.colQty, styles.th]}>Stuks</Text>
-        <Text style={[styles.colReg, styles.th]}>Lijnen</Text>
       </View>
       {rows.map((row, i) => (
         <View key={`${row.nameNl}-${row.heliOmCategory}-${i}`} style={styles.tableRow} wrap={false}>
@@ -170,7 +157,6 @@ function ObjectTypeSummaryTable({
           <Text style={styles.colFr}>{row.nameFr}</Text>
           <Text style={styles.colCode}>{row.heliOmCategory}</Text>
           <Text style={styles.colQty}>{row.totalStuks}</Text>
-          <Text style={styles.colReg}>{row.registraties}</Text>
         </View>
       ))}
       <View style={styles.tableRowTotal} wrap={false}>
@@ -178,7 +164,6 @@ function ObjectTypeSummaryTable({
         <Text style={styles.colFr}> </Text>
         <Text style={styles.colCode}> </Text>
         <Text style={[styles.colQty, { fontWeight: 'bold' }]}>{grandTotalStuks}</Text>
-        <Text style={[styles.colReg, { fontWeight: 'bold' }]}>{grandTotalReg}</Text>
       </View>
     </View>
   );
@@ -189,7 +174,6 @@ function ClientReport({ session }: { session: SessionData }) {
   let globalIndex = 0;
   const typeRows = aggregateObjectTypes(session.scanRecords);
   const grandTotalStuks = typeRows.reduce((s, r) => s + r.totalStuks, 0);
-  const grandTotalReg = typeRows.reduce((s, r) => s + r.registraties, 0);
 
   return (
     <Document>
@@ -213,11 +197,7 @@ function ClientReport({ session }: { session: SessionData }) {
 
         <View style={styles.divider} />
 
-        <ObjectTypeSummaryTable
-          rows={typeRows}
-          grandTotalStuks={grandTotalStuks}
-          grandTotalReg={grandTotalReg}
-        />
+        <ObjectTypeSummaryTable rows={typeRows} grandTotalStuks={grandTotalStuks} />
 
         <View style={styles.divider} />
 
