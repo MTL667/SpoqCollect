@@ -420,6 +420,30 @@ priorReportsRouter.patch('/:sessionId/draft-assets/:draftId', async (req, res, n
   }
 });
 
+priorReportsRouter.delete('/:sessionId/draft-assets/:draftId', async (req, res, next) => {
+  try {
+    const sessionId = req.params.sessionId as string;
+    const draftId = req.params.draftId as string;
+
+    const session = await prisma.inventorySession.findUnique({ where: { id: sessionId } });
+    if (!session || session.inspectorId !== req.inspector!.inspectorId) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Niet gevonden' } });
+      return;
+    }
+
+    const draft = await prisma.draftAsset.findFirst({ where: { id: draftId, sessionId } });
+    if (!draft) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Concept niet gevonden' } });
+      return;
+    }
+
+    await prisma.draftAsset.delete({ where: { id: draftId } });
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+});
+
 /** Verwijder geüpload verslag (en concepten die enkel uit dat bestand komen). */
 priorReportsRouter.delete('/:sessionId/prior-reports/:fileId', async (req, res, next) => {
   try {
