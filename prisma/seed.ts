@@ -40,50 +40,62 @@ const buildingTypes: BuildingTypeSeed[] = [
   { nameNl: 'Evenementenhal', nameFr: 'Salle événementielle' },
 ];
 
+// Object types from official "Objecten Checklijst" — 45 types across 5 categories
 const objectTypes: ObjectTypeSeed[] = [
-  { nameNl: 'Veiligheidsverlichting', nameFr: '\u00c9clairage de s\u00e9curit\u00e9', heliOmCategory: 'VV', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Branddetectiecentrale', nameFr: "Centrale de d\u00e9tection d'incendie", heliOmCategory: 'BD', applicableBuildings: ALL_BUILDINGS },
-  // Veldcomponenten branddetectie: sirene, rookmelder, handmelder/drukknop
-  { nameNl: 'Brandalarm sirene', nameFr: "Sir\u00e8ne d'alarme incendie", heliOmCategory: 'BD-SIR', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Rookmelder', nameFr: 'D\u00e9tecteur de fum\u00e9e', heliOmCategory: 'BD-DF', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Handmelder (drukknop)', nameFr: 'D\u00e9clencheur manuel / bouton-poussoir', heliOmCategory: 'BD-HM', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Rookkoepels', nameFr: 'Coupoles de d\u00e9senfumage', heliOmCategory: 'RK', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Brandblusser', nameFr: 'Extincteur', heliOmCategory: 'BB', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Brandhaspel', nameFr: 'D\u00e9vidoir incendie', heliOmCategory: 'BH', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Hydrant', nameFr: 'Hydrant', heliOmCategory: 'HYD', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Branddeur', nameFr: 'Porte coupe-feu', heliOmCategory: 'BD-D', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Brandblusinstallatie dampkap', nameFr: "Syst\u00e8me d'extinction pour hottes", heliOmCategory: 'BB-DK', applicableBuildings: ['Hotel', 'School', 'Zorg', 'Resto/caf\u00e9'] },
-  { nameNl: 'Gasdetectie', nameFr: 'D\u00e9tection de gaz', heliOmCategory: 'GD', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Evacuatieplan', nameFr: "Plan d'\u00e9vacuation", heliOmCategory: 'EP', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Laagspanning', nameFr: 'Basse tension', heliOmCategory: 'LS', applicableBuildings: ALL_BUILDINGS },
+  // === Elektriciteit ===
+  { nameNl: 'Laagspanning (max 10 kringen)', nameFr: 'Basse tension (max 10 circuits)', heliOmCategory: 'LS1', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Laagspanning (vanaf 11 kringen)', nameFr: 'Basse tension (\u00e0 partir de 11 circuits)', heliOmCategory: 'LS2', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Laagspanning gemene delen', nameFr: 'Basse tension parties communes', heliOmCategory: 'LS gem.', applicableBuildings: ALL_BUILDINGS },
   { nameNl: 'Hoogspanning', nameFr: 'Haute tension', heliOmCategory: 'HS', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Bliksemafleider', nameFr: 'Paratonnerre', heliOmCategory: 'BLA', applicableBuildings: ['Winkel/retail', 'Hotel', 'Appartement', 'Garage/bandencentrale', 'School', 'Zorg', 'Parking', 'Sportfaciliteit', 'Kantoor', 'Magazijn', 'Evenementenhal'] },
-  { nameNl: 'ATEX', nameFr: 'ATEX', heliOmCategory: 'ATEX', applicableBuildings: ['Garage/bandencentrale', 'Zorg', 'Magazijn'] },
-  { nameNl: 'Stookplaats', nameFr: 'Chaufferie', heliOmCategory: 'GK', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Personenlift', nameFr: 'Ascenseur pour personnes', heliOmCategory: 'PL', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Goederenlift', nameFr: 'Monte-charges', heliOmCategory: 'GL', applicableBuildings: ['Hotel', 'Garage/bandencentrale', 'School', 'Zorg', 'Resto/caf\u00e9', 'Sportfaciliteit', 'Kantoor', 'Magazijn', 'Evenementenhal'] },
-  { nameNl: 'Mindervalidenlift', nameFr: 'Ascenseur PMR', heliOmCategory: 'MVL', applicableBuildings: ['Winkel/retail', 'Hotel', 'Appartement', 'Garage/bandencentrale', 'School', 'Zorg', 'Resto/caf\u00e9', 'Parking', 'Sportfaciliteit', 'Kantoor', 'Evenementenhal'] },
-  { nameNl: 'Hangstelling', nameFr: 'Nacelle suspendue', heliOmCategory: 'HST', applicableBuildings: ['Winkel/retail', 'Hotel', 'Appartement', 'Garage/bandencentrale', 'School', 'Zorg', 'Parking', 'Kantoor', 'Evenementenhal'] },
-  { nameNl: 'Speeltoestel', nameFr: '\u00c9quipement de jeux', heliOmCategory: 'SPT', applicableBuildings: ['Hotel', 'Appartement', 'School', 'Zorg', 'Resto/caf\u00e9', 'Sportfaciliteit', 'Evenementenhal'] },
-  { nameNl: 'Ankerlijn/ankerpunt', nameFr: "Ligne d'ancrage/point d'ancrage", heliOmCategory: 'ANK', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Hoogwerker', nameFr: 'Nacelle \u00e9l\u00e9vatrice', heliOmCategory: 'HW', applicableBuildings: ['Hotel', 'Garage/bandencentrale', 'Zorg', 'Sportfaciliteit', 'Magazijn', 'Evenementenhal'] },
-  { nameNl: 'Autolift', nameFr: 'Ascenseur de voiture', heliOmCategory: 'AL', applicableBuildings: ['Appartement', 'Parking'] },
-  { nameNl: 'Autobrug', nameFr: 'Pont de voiture', heliOmCategory: 'AB', applicableBuildings: ['Garage/bandencentrale'] },
-  { nameNl: 'Sectionaalpoort', nameFr: 'Portail sectionnel', heliOmCategory: 'SP', applicableBuildings: ['Winkel/retail', 'Hotel', 'Appartement', 'Garage/bandencentrale', 'Parking', 'Sportfaciliteit', 'Magazijn', 'Evenementenhal'] },
-  { nameNl: 'Rolbrug', nameFr: 'Pont roulant', heliOmCategory: 'RB', applicableBuildings: ['Garage/bandencentrale', 'Magazijn', 'Evenementenhal'] },
-  { nameNl: 'Roltrap', nameFr: 'Escalator', heliOmCategory: 'RT', applicableBuildings: ['Winkel/retail', 'Hotel', 'Zorg', 'Parking', 'Kantoor', 'Evenementenhal'] },
-  { nameNl: 'Heftruck', nameFr: 'Chariot \u00e9l\u00e9vateur', heliOmCategory: 'HT', applicableBuildings: ['Garage/bandencentrale', 'Magazijn'] },
-  { nameNl: 'Stookolietank ondergronds', nameFr: 'Citerne \u00e0 mazout souterraine', heliOmCategory: 'STKO', applicableBuildings: ['Winkel/retail', 'Appartement', 'Garage/bandencentrale', 'School', 'Resto/caf\u00e9', 'Sportfaciliteit'] },
-  { nameNl: 'Stookolietank bovengronds', nameFr: 'Citerne \u00e0 mazout hors-sol', heliOmCategory: 'STKB', applicableBuildings: ['Winkel/retail', 'Appartement', 'Garage/bandencentrale', 'School', 'Resto/caf\u00e9', 'Sportfaciliteit'] },
-  { nameNl: 'Boven-/ondergrondse houder', nameFr: 'R\u00e9servoir a\u00e9rien/souterrain', heliOmCategory: 'BEO', applicableBuildings: ['Garage/bandencentrale', 'Magazijn'] },
-  { nameNl: 'Brandstofverdeelinstallatie', nameFr: 'Installation de distribution de carburant', heliOmCategory: 'BVI', applicableBuildings: ['Garage/bandencentrale', 'Magazijn'] },
-  { nameNl: 'Opslagplaats gevaarlijke stoffen', nameFr: 'Zone de stockage de substances dangereuses', heliOmCategory: 'OGS', applicableBuildings: ['Garage/bandencentrale', 'Zorg', 'Sportfaciliteit', 'Magazijn'] },
-  { nameNl: 'Persluchthouder', nameFr: "R\u00e9servoir d'air comprim\u00e9", heliOmCategory: 'PLH', applicableBuildings: ['Hotel', 'Garage/bandencentrale', 'School', 'Zorg', 'Resto/caf\u00e9', 'Parking', 'Sportfaciliteit', 'Magazijn', 'Evenementenhal'] },
-  { nameNl: 'Laspost', nameFr: 'Poste \u00e0 souder', heliOmCategory: 'LAS', applicableBuildings: ['Garage/bandencentrale', 'Magazijn'] },
-  { nameNl: 'Kartonpers', nameFr: 'Presse \u00e0 carton', heliOmCategory: 'KP', applicableBuildings: ['Winkel/retail', 'Hotel', 'Magazijn'] },
-  { nameNl: 'Generator', nameFr: 'G\u00e9n\u00e9rateur', heliOmCategory: 'GEN', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Laadbrug', nameFr: 'Pont de chargement', heliOmCategory: 'LB', applicableBuildings: ['Magazijn', 'Evenementenhal'] },
-  { nameNl: 'Dockshelter', nameFr: 'Abri de quai', heliOmCategory: 'DS', applicableBuildings: ['Magazijn'] },
+  { nameNl: 'ATEX', nameFr: 'ATEX', heliOmCategory: 'Atex', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Bliksemafleiders', nameFr: 'Paratonnerres', heliOmCategory: 'Bliksemafleiders', applicableBuildings: ALL_BUILDINGS },
+
+  // === Gas ===
+  { nameNl: 'Gasdichtheid < 70kW', nameFr: '\u00c9tanch\u00e9it\u00e9 au gaz < 70 kW/h', heliOmCategory: 'Gas 1', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Gasdichtheid \u2265 70kW (stookplaats)', nameFr: '\u00c9tanch\u00e9it\u00e9 au gaz \u2265 70 kW/h (chaufferie)', heliOmCategory: 'Gas 2', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Gasdetectie', nameFr: 'D\u00e9tection de gaz', heliOmCategory: 'GD', applicableBuildings: ALL_BUILDINGS },
+
+  // === Brand ===
+  { nameNl: 'Veiligheidsverlichting', nameFr: '\u00c9clairage de s\u00e9curit\u00e9', heliOmCategory: 'VV', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Branddetectie goede werking', nameFr: 'Bon fonctionnement de la d\u00e9tection incendie', heliOmCategory: 'BD \u2013 centrale', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Brandblussers', nameFr: 'Extincteurs', heliOmCategory: 'BB \u2013 benor', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Brandhaspels', nameFr: 'D\u00e9vidoirs incendie', heliOmCategory: 'BB \u2013 haspel', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Hydranten', nameFr: 'Hydrants', heliOmCategory: 'BB \u2013 Hydrant', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Rookkoepels goede werking', nameFr: 'Bon fonctionnement des coupoles de d\u00e9senfumage', heliOmCategory: 'Rookkoepel', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Dampkapblusinstallatie', nameFr: "Syst\u00e8me d'extinction pour hotte aspirante", heliOmCategory: 'Dampkapblusinstallatie', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Brandwerende deur', nameFr: 'Porte coupe-feu', heliOmCategory: 'Branddeur \u2013 benor', applicableBuildings: ALL_BUILDINGS },
+
+  // === Hef en Hijs ===
+  { nameNl: 'Personenliften', nameFr: 'Ascenseurs pour personnes', heliOmCategory: 'PL', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Goederenliften', nameFr: 'Monte-charges', heliOmCategory: 'GL', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Fabrieksliften', nameFr: 'Ascenseurs industriels', heliOmCategory: 'FL', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Mindervalidenliften', nameFr: 'Ascenseurs PMR', heliOmCategory: 'MvL', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Hangstelling', nameFr: 'Nacelle suspendue', heliOmCategory: 'Hangstelling', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Speeltoestellen', nameFr: '\u00c9quipements de jeux', heliOmCategory: 'Speeltoestellen', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Ankerlijnen', nameFr: "Lignes d'ancrage", heliOmCategory: 'Ankerlijn', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Ankerpunten', nameFr: "Points d'ancrage", heliOmCategory: 'Ankerpunt', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Hoogwerker', nameFr: 'Nacelle \u00e9l\u00e9vatrice', heliOmCategory: 'Hoogwerker', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Ladders', nameFr: '\u00c9chelles', heliOmCategory: 'Ladders', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Stellingen', nameFr: '\u00c9chafaudages', heliOmCategory: 'Stellingen', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Autobrug', nameFr: 'Pont \u00e9l\u00e9vateur', heliOmCategory: 'Autobrug', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Heftruck', nameFr: 'Chariot \u00e9l\u00e9vateur', heliOmCategory: 'Heftruck', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Graafmachine', nameFr: 'Excavatrice', heliOmCategory: 'Graafmachine', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Hefplatform', nameFr: 'Plateforme \u00e9l\u00e9vatrice', heliOmCategory: 'Hefplatform', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Werkplaatskraan', nameFr: "Grue d'atelier", heliOmCategory: 'Werkplaatskraan', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Transmissiekrik', nameFr: 'Cric de transmission', heliOmCategory: 'Transmissiekrik', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Magazijnrek', nameFr: "Rayonnage d'entrep\u00f4t", heliOmCategory: 'Magazijnrek', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Rolbrug', nameFr: 'Pont roulant', heliOmCategory: 'Rolbrug', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Roltrap', nameFr: 'Escalator', heliOmCategory: 'Roltrap', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Tillift', nameFr: 'Soul\u00e8ve-personnes actif ou passif', heliOmCategory: 'Tillift', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Poorten', nameFr: 'Portails', heliOmCategory: 'Poorten', applicableBuildings: ALL_BUILDINGS },
+
+  // === Milieu ===
+  { nameNl: 'Stookolietank ondergronds', nameFr: 'Citerne \u00e0 mazout souterraine', heliOmCategory: 'Stookolietank \u2013 1', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Stookolietank bovengronds', nameFr: 'Citerne \u00e0 mazout hors-sol', heliOmCategory: 'Stookolietank \u2013 2', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Boven- en ondergrondse houders', nameFr: 'R\u00e9servoirs a\u00e9riens et souterrains', heliOmCategory: 'Houder', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Brandstofverdeelinstallaties', nameFr: 'Installations de distribution de carburant', heliOmCategory: 'Verdeelinst.', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Opslagplaats gevaarlijke stoffen', nameFr: 'Zone de stockage de substances dangereuses', heliOmCategory: 'Opslag GS', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Persluchthouders', nameFr: "R\u00e9servoirs d'air comprim\u00e9", heliOmCategory: 'Perslucht', applicableBuildings: ALL_BUILDINGS },
 ];
 
 async function main() {
@@ -129,14 +141,23 @@ async function main() {
   }
   console.log(`  ${objectTypes.length} object types upserted with building type links`);
 
+  const activeNames = new Set(objectTypes.map((ot) => ot.nameNl));
+  const deactivated = await prisma.objectType.updateMany({
+    where: { nameNl: { notIn: [...activeNames] }, active: true },
+    data: { active: false },
+  });
+  if (deactivated.count > 0) {
+    console.log(`  ${deactivated.count} old object types deactivated`);
+  }
+
   console.log('Seeding service code mappings (Odoo handoff)...');
   await prisma.serviceCodeMapping.deleteMany({});
   const mappingSeeds: { nameNl: string; regime: string | null; odooProductCode: string; labelNl: string }[] = [
-    { nameNl: 'Personenlift', regime: null, odooProductCode: 'ODOO-SVC-PL', labelNl: 'Personenlift (default)' },
-    { nameNl: 'Personenlift', regime: 'norm', odooProductCode: 'ODOO-SVC-PL-NORM', labelNl: 'Personenlift normkeuring' },
-    { nameNl: 'Personenlift', regime: 'werking', odooProductCode: 'ODOO-SVC-PL-WERK', labelNl: 'Personenlift goede werking' },
-    { nameNl: 'Brandblusser', regime: null, odooProductCode: 'ODOO-SVC-BB', labelNl: 'Brandblusser' },
-    { nameNl: 'Bliksemafleider', regime: null, odooProductCode: 'ODOO-SVC-BLA', labelNl: 'Bliksemafleider' },
+    { nameNl: 'Personenliften', regime: null, odooProductCode: 'ODOO-SVC-PL', labelNl: 'Personenlift (default)' },
+    { nameNl: 'Personenliften', regime: 'norm', odooProductCode: 'ODOO-SVC-PL-NORM', labelNl: 'Personenlift normkeuring' },
+    { nameNl: 'Personenliften', regime: 'werking', odooProductCode: 'ODOO-SVC-PL-WERK', labelNl: 'Personenlift goede werking' },
+    { nameNl: 'Brandblussers', regime: null, odooProductCode: 'ODOO-SVC-BB', labelNl: 'Brandblussers' },
+    { nameNl: 'Bliksemafleiders', regime: null, odooProductCode: 'ODOO-SVC-BLA', labelNl: 'Bliksemafleiders' },
     { nameNl: 'Heftruck', regime: null, odooProductCode: 'ODOO-SVC-HT', labelNl: 'Heftruck' },
   ];
   let mapCount = 0;
