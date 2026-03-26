@@ -90,6 +90,27 @@ export function usePriorReportFiles(sessionId: string | undefined) {
   });
 }
 
+export function useDeletePriorReportFile(sessionId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (fileId: string) => {
+      const res = await fetch(`/api/sessions/${sessionId}/prior-reports/${fileId}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+      if (!res.ok) {
+        const j = await res.json();
+        throw new Error(j.error?.message ?? 'Verwijderen mislukt');
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['prior-report-files', sessionId] });
+      qc.invalidateQueries({ queryKey: ['draft-assets', sessionId] });
+      qc.invalidateQueries({ queryKey: ['sessions', sessionId] });
+    },
+  });
+}
+
 export function useDeleteDraftAsset(sessionId: string) {
   const qc = useQueryClient();
   return useMutation({
