@@ -210,6 +210,32 @@ export function useCreateFloor(sessionId: string, locationId: string) {
   });
 }
 
+export function useDeleteFloor(sessionId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (floorId: string) =>
+      apiClient(`/api/sessions/${sessionId}/floors/${floorId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sessions', sessionId] });
+    },
+  });
+}
+
+export function useDuplicateFloor(sessionId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ floorId, targetFloorId }: { floorId: string; targetFloorId: string }) =>
+      apiClient(`/api/sessions/${sessionId}/floors/${floorId}/duplicate`, {
+        method: 'POST',
+        body: JSON.stringify({ targetFloorId }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sessions', sessionId] });
+    },
+  });
+}
+
 export function formatAddress(session: { street: string; number: string; bus: string | null; postalCode: string; city: string }) {
   const addr = `${session.street} ${session.number}${session.bus ? ` bus ${session.bus}` : ''}`;
   return `${addr}, ${session.postalCode} ${session.city}`;

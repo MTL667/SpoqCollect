@@ -296,6 +296,25 @@ scansRouter.patch('/:id/quantity', async (req: Request, res: Response, next: Nex
   }
 });
 
+scansRouter.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const scanId = req.params.id as string;
+    const scan = await prisma.scanRecord.findUnique({ where: { id: scanId }, include: { scanJob: true } });
+
+    if (!scan) { res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Scan not found' } }); return; }
+    if (scan.inspectorId !== req.inspector!.inspectorId) { res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not your scan' } }); return; }
+
+    if (scan.scanJob) {
+      await prisma.scanJob.delete({ where: { id: scan.scanJob.id } });
+    }
+    await prisma.scanRecord.delete({ where: { id: scanId } });
+
+    res.json({ data: { id: scanId, deleted: true } });
+  } catch (error) {
+    next(error);
+  }
+});
+
 scansRouter.get('/:id/status', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const scanId = req.params.id as string;

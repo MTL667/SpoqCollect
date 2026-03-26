@@ -68,6 +68,93 @@ locationsRouter.post('/:sessionId/locations', async (req: Request, res: Response
   }
 });
 
+locationsRouter.delete('/:sessionId/floors/:floorId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { sessionId, floorId } = req.params as Record<string, string>;
+
+    const floor = await prisma.floor.findUnique({
+      where: { id: floorId },
+      include: { location: { include: { session: true } }, scanRecords: { include: { scanJob: true } } },
+    });
+
+    if (!floor || floor.location.sessionId !== sessionId) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Floor not found' } });
+      return;
+    }
+    if (floor.location.session.inspectorId !== req.inspector!.inspectorId) {
+      res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not your session' } });
+      return;
+    }
+
+    for (const record of floor.scanRecords) {
+      if (record.scanJob) await prisma.scanJob.delete({ where: { id: record.scanJob.id } });
+    }
+    await prisma.scanRecord.deleteMany({ where: { floorId } });
+    await prisma.floor.delete({ where: { id: floorId } });
+
+    res.json({ data: { id: floorId, deleted: true } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+locationsRouter.post('/:sessionId/floors/:floorId/duplicate', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { sessionId, floorId } = req.params as Record<string, string>;
+    const { targetFloorId } = req.body as { targetFloorId?: string };
+
+    if (!targetFloorId) {
+      res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'targetFloorId is required' } });
+      return;
+    }
+
+    const sourceFloor = await prisma.floor.findUnique({
+      where: { id: floorId },
+      include: {
+        location: { include: { session: true } },
+        scanRecords: { where: { status: 'confirmed' } },
+      },
+    });
+
+    if (!sourceFloor || sourceFloor.location.sessionId !== sessionId) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Source floor not found' } });
+      return;
+    }
+    if (sourceFloor.location.session.inspectorId !== req.inspector!.inspectorId) {
+      res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not your session' } });
+      return;
+    }
+
+    const targetFloor = await prisma.floor.findUnique({ where: { id: targetFloorId } });
+    if (!targetFloor) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Target floor not found' } });
+      return;
+    }
+
+    const created = [];
+    for (const record of sourceFloor.scanRecords) {
+      const newRecord = await prisma.scanRecord.create({
+        data: {
+          sessionId,
+          floorId: targetFloorId,
+          inspectorId: req.inspector!.inspectorId,
+          photoPath: null,
+          confirmedTypeId: record.confirmedTypeId,
+          quantity: record.quantity,
+          status: 'confirmed',
+          confirmedAt: new Date(),
+        },
+        include: { confirmedType: true },
+      });
+      created.push(newRecord);
+    }
+
+    res.status(201).json({ data: { count: created.length } });
+  } catch (error) {
+    next(error);
+  }
+});
+
 locationsRouter.post('/:sessionId/locations/:locationId/floors', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { sessionId, locationId } = req.params as Record<string, string>;

@@ -325,7 +325,13 @@ export default function ScanFlow() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow p-4">
+      <div className="bg-white shadow p-4 flex justify-between">
+        <button
+          onClick={() => navigate(`/sessions/${sessionId}`)}
+          className="text-gray-500 text-sm hover:underline"
+        >
+          &larr; Terug naar sessie
+        </button>
         <button
           onClick={() => setStep('camera')}
           className="text-blue-700 text-sm hover:underline"

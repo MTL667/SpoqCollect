@@ -30,6 +30,9 @@ async function processJob(jobId: string): Promise<void> {
   });
 
   try {
+    if (!job.scanRecord.photoPath) {
+      throw new Error('No photo path for scan record');
+    }
     const photoPath = getPhotoAbsolutePath(job.scanRecord.photoPath);
     const buildingTypeNameNl = job.scanRecord.session.buildingType.nameNl;
 

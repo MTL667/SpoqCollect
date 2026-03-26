@@ -106,6 +106,32 @@ export function useManualAdd(sessionId: string) {
   });
 }
 
+export function useDeleteScan(sessionId: string) {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (scanId: string) => {
+      const token = localStorage.getItem('inventarispoq_auth');
+      const parsed = token ? JSON.parse(token) : null;
+
+      const res = await fetch(`/api/scans/${scanId}`, {
+        method: 'DELETE',
+        headers: parsed?.token ? { Authorization: `Bearer ${parsed.token}` } : {},
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message ?? 'Delete failed');
+      }
+
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sessions', sessionId] });
+    },
+  });
+}
+
 export function useConfirmScan() {
   const qc = useQueryClient();
 

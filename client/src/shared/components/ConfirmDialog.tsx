@@ -7,6 +7,7 @@ interface ConfirmDialogProps {
   onConfirm: () => void;
   onCancel: () => void;
   isLoading?: boolean;
+  variant?: 'default' | 'destructive';
 }
 
 export default function ConfirmDialog({
@@ -18,8 +19,13 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
   isLoading = false,
+  variant = 'default',
 }: ConfirmDialogProps) {
   if (!open) return null;
+
+  const btnClass = variant === 'destructive'
+    ? 'px-4 py-2 bg-red-600 text-white font-medium rounded-md hover:bg-red-700 disabled:opacity-50'
+    : 'px-4 py-2 bg-blue-700 text-white font-medium rounded-md hover:bg-blue-800 disabled:opacity-50';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -37,7 +43,7 @@ export default function ConfirmDialog({
           <button
             onClick={onConfirm}
             disabled={isLoading}
-            className="px-4 py-2 bg-blue-700 text-white font-medium rounded-md hover:bg-blue-800 disabled:opacity-50"
+            className={btnClass}
           >
             {isLoading ? 'Bezig...' : confirmLabel}
           </button>
