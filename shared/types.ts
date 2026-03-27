@@ -97,3 +97,16 @@ export interface AiClassificationResult {
 
 export const HIGH_CONFIDENCE_THRESHOLD = 0.85;
 export const MEDIUM_CONFIDENCE_THRESHOLD = 0.50;
+
+export type OdooLineType = 'startprijs' | 'stukprijs' | null;
+
+export interface OdooLineDTO {
+  scanId: string;
+  objectTypeNl: string;
+  quantity: number;
+  odooProductCode: string;
+  regime: string | null;
+  unmapped: boolean;
+  parentScanId: string | null;
+  lineType: OdooLineType;
+}

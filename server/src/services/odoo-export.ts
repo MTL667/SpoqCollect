@@ -7,6 +7,8 @@ function escapeCsvCell(v: string): string {
   return v;
 }
 
+export type OdooLineType = 'startprijs' | 'stukprijs' | null;
+
 export interface OdooLine {
   scanId: string;
   objectTypeNl: string;
@@ -15,10 +17,17 @@ export interface OdooLine {
   regime: string | null;
   unmapped: boolean;
   parentScanId: string | null;
+  lineType: OdooLineType;
 }
 
 /**
- * Map scans to Odoo-oriented lines using ServiceCodeMapping (default regime = null row).
+ * Map scans to Odoo-oriented lines using ServiceCodeMapping.
+ *
+ * When a mapping has a startPriceProductCode, TWO lines are emitted:
+ *   1. A "startprijs" line (qty=1) – emitted only ONCE per ObjectType per session
+ *   2. A "stukprijs" line (qty=N) – emitted for each scan
+ *
+ * When a mapping has no startPriceProductCode, a single line with lineType=null is emitted.
  */
 export async function deriveOdooLines(sessionId: string): Promise<OdooLine[]> {
   const session = await prisma.inventorySession.findUnique({
@@ -44,6 +53,7 @@ export async function deriveOdooLines(sessionId: string): Promise<OdooLine[]> {
   });
 
   const lines: OdooLine[] = [];
+  const emittedStartPrices = new Set<string>();
 
   for (const scan of session.scanRecords) {
     const typeId = scan.confirmedTypeId!;
@@ -51,6 +61,7 @@ export async function deriveOdooLines(sessionId: string): Promise<OdooLine[]> {
 
     const candidates = mappings.filter((m) => m.objectTypeId === typeId);
     let code: string | null = null;
+    let startCode: string | null = null;
     let regime: string | null = null;
     let unmapped = false;
 
@@ -64,10 +75,28 @@ export async function deriveOdooLines(sessionId: string): Promise<OdooLine[]> {
       const picked = byRegime ?? defaultRow ?? candidates[0];
       if (picked) {
         code = picked.odooProductCode;
+        startCode = picked.startPriceProductCode;
         regime = picked.regime;
       } else {
         unmapped = true;
       }
+    }
+
+    const resolvedRegime = regime ?? globalRegime;
+    const startPriceKey = `${typeId}::${resolvedRegime ?? ''}`;
+
+    if (startCode && !emittedStartPrices.has(startPriceKey)) {
+      emittedStartPrices.add(startPriceKey);
+      lines.push({
+        scanId: scan.id,
+        objectTypeNl: typeNl,
+        quantity: 1,
+        odooProductCode: startCode,
+        regime: resolvedRegime,
+        unmapped: false,
+        parentScanId: scan.parentScanId,
+        lineType: 'startprijs',
+      });
     }
 
     lines.push({
@@ -75,9 +104,10 @@ export async function deriveOdooLines(sessionId: string): Promise<OdooLine[]> {
       objectTypeNl: typeNl,
       quantity: scan.quantity,
       odooProductCode: code ?? 'UNMAPPED',
-      regime: regime ?? globalRegime,
+      regime: resolvedRegime,
       unmapped,
       parentScanId: scan.parentScanId,
+      lineType: startCode ? 'stukprijs' : null,
     });
   }
 
@@ -96,9 +126,10 @@ export async function generateOdooCsvBuffer(sessionId: string): Promise<{ csv: B
     odoo_product_code: l.odooProductCode,
     regime: l.regime ?? '',
     unmapped: l.unmapped ? 'yes' : 'no',
+    line_type: l.lineType ?? '',
   }));
 
-  const cols = ['scan_id', 'parent_scan_id', 'object_type_nl', 'quantity', 'odoo_product_code', 'regime', 'unmapped'] as const;
+  const cols = ['scan_id', 'parent_scan_id', 'object_type_nl', 'quantity', 'odoo_product_code', 'regime', 'unmapped', 'line_type'] as const;
   const headerLine = cols.join(',');
   const body = rows
     .map((r) =>
@@ -110,6 +141,7 @@ export async function generateOdooCsvBuffer(sessionId: string): Promise<{ csv: B
         escapeCsvCell(r.odoo_product_code),
         escapeCsvCell(r.regime),
         escapeCsvCell(r.unmapped),
+        escapeCsvCell(r.line_type),
       ].join(','),
     )
     .join('\n');
