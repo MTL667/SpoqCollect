@@ -17,6 +17,7 @@ interface ObjectTypeSeed {
   nameFr: string;
   heliOmCategory: string;
   applicableBuildings: string[];
+  exportParty?: string;
 }
 
 interface OdooProductSeed {
@@ -75,12 +76,12 @@ const objectTypes: ObjectTypeSeed[] = [
   // === Brand ===
   { nameNl: 'Veiligheidsverlichting', nameFr: 'Éclairage de sécurité', heliOmCategory: 'VV', applicableBuildings: ALL_BUILDINGS },
   { nameNl: 'Branddetectie goede werking', nameFr: 'Bon fonctionnement de la détection incendie', heliOmCategory: 'BD – centrale', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Brandblussers', nameFr: 'Extincteurs', heliOmCategory: 'BB – benor', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Brandhaspels', nameFr: 'Dévidoirs incendie', heliOmCategory: 'BB – haspel', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Hydranten', nameFr: 'Hydrants', heliOmCategory: 'BB – Hydrant', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Brandblussers', nameFr: 'Extincteurs', heliOmCategory: 'BB – benor', applicableBuildings: ALL_BUILDINGS, exportParty: 'simafire' },
+  { nameNl: 'Brandhaspels', nameFr: 'Dévidoirs incendie', heliOmCategory: 'BB – haspel', applicableBuildings: ALL_BUILDINGS, exportParty: 'simafire' },
+  { nameNl: 'Hydranten', nameFr: 'Hydrants', heliOmCategory: 'BB – Hydrant', applicableBuildings: ALL_BUILDINGS, exportParty: 'simafire' },
   { nameNl: 'Rookkoepels goede werking', nameFr: 'Bon fonctionnement des coupoles de désenfumage', heliOmCategory: 'Rookkoepel', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Dampkapblusinstallatie', nameFr: "Système d'extinction pour hotte aspirante", heliOmCategory: 'Dampkapblusinstallatie', applicableBuildings: ALL_BUILDINGS },
-  { nameNl: 'Brandwerende deur', nameFr: 'Porte coupe-feu', heliOmCategory: 'Branddeur – benor', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Dampkapblusinstallatie', nameFr: "Système d'extinction pour hotte aspirante", heliOmCategory: 'Dampkapblusinstallatie', applicableBuildings: ALL_BUILDINGS, exportParty: 'simafire' },
+  { nameNl: 'Brandwerende deur', nameFr: 'Porte coupe-feu', heliOmCategory: 'Branddeur – benor', applicableBuildings: ALL_BUILDINGS, exportParty: 'firesecure' },
 
   // === Hef en Hijs (original) ===
   { nameNl: 'Personenliften', nameFr: 'Ascenseurs pour personnes', heliOmCategory: 'PL', applicableBuildings: ALL_BUILDINGS },
@@ -344,6 +345,20 @@ const odooProducts: OdooProductSeed[] = [
   { code: 'PC.HH.13', name: 'Voetbalstadia visueel onderzoek jaarlijks en stabiliteit 3 jaarlijks', category: null },
   { code: 'PC.HH.11.03', name: 'Werkplaatskraan: periodiek', category: 'Hef en Hijs' },
   { code: 'PC.HH.11.03.', name: 'Zwenkkraan: Periodiek', category: 'Hef en Hijs' },
+
+  // === Simafire products ===
+  { code: 'OBB.01', name: 'Onderhoud brandblusser (jaarlijks)', category: 'Simafire' },
+  { code: 'OBB.05', name: 'Onderhoud automatische brandblusser (jaarlijks) - branders, stookplaatsen, etc.', category: 'Simafire' },
+  { code: 'OBW.01', name: 'Onderhoud bluswagen (jaarlijks)', category: 'Simafire' },
+  { code: 'OBH.01', name: 'Onderhoud brandhaspel (jaarlijks)', category: 'Simafire' },
+  { code: 'OH.01', name: 'Onderhoud bovengrondse hydrant', category: 'Simafire' },
+  { code: 'OH.02', name: 'Onderhoud ondergrondse hydrant', category: 'Simafire' },
+  { code: 'OH.03', name: 'Onderhoud muurhydrant (jaarlijks)', category: 'Simafire' },
+  { code: 'OFL.01', name: 'Onderhoud automatische blussysteem (jaarlijks) - keukens, dampkappen, friteusbeveiliging, etc.', category: 'Simafire' },
+  { code: 'ORM.01', name: 'Controle rookmelder volgens goede werking (jaarlijks)', category: 'Simafire' },
+
+  // === Firesecure products ===
+  { code: 'FS.BD.01', name: 'Controle brand- en nooddeuren', category: 'Firesecure' },
 ];
 
 // ────────────────────────────────────────────────────────────────
@@ -447,6 +462,15 @@ const serviceCodeMappings: MappingSeed[] = [
   { objectTypeNl: 'Voetbalstadion', regime: null, odooProductCode: 'PC.HH.13', startPriceProductCode: null, labelNl: 'Voetbalstadia visueel onderzoek' },
   { objectTypeNl: 'Lastoestel', regime: null, odooProductCode: 'PC.LAS1', startPriceProductCode: null, labelNl: 'Inspectie lastoestel' },
   { objectTypeNl: 'VCA arbeidsmiddelen', regime: null, odooProductCode: 'PC.VCA.01', startPriceProductCode: null, labelNl: 'Nazicht arbeidsmiddelen (VCA)' },
+
+  // === Simafire mappings ===
+  { objectTypeNl: 'Brandblussers', regime: null, odooProductCode: 'OBB.01', startPriceProductCode: null, labelNl: 'Onderhoud brandblusser (jaarlijks)' },
+  { objectTypeNl: 'Brandhaspels', regime: null, odooProductCode: 'OBH.01', startPriceProductCode: null, labelNl: 'Onderhoud brandhaspel (jaarlijks)' },
+  { objectTypeNl: 'Hydranten', regime: null, odooProductCode: 'OH.01', startPriceProductCode: null, labelNl: 'Onderhoud bovengrondse hydrant' },
+  { objectTypeNl: 'Dampkapblusinstallatie', regime: null, odooProductCode: 'OFL.01', startPriceProductCode: null, labelNl: 'Onderhoud automatische blussysteem (jaarlijks)' },
+
+  // === Firesecure mappings ===
+  { objectTypeNl: 'Brandwerende deur', regime: null, odooProductCode: 'FS.BD.01', startPriceProductCode: null, labelNl: 'Controle brand- en nooddeuren' },
 ];
 
 async function main() {
@@ -464,15 +488,20 @@ async function main() {
 
   console.log('Seeding object types...');
   for (const ot of objectTypes) {
-    const record = await prisma.objectType.upsert({
-      where: { nameNl: ot.nameNl },
-      update: { nameFr: ot.nameFr, heliOmCategory: ot.heliOmCategory },
-      create: {
-        nameNl: ot.nameNl,
-        nameFr: ot.nameFr,
-        heliOmCategory: ot.heliOmCategory,
-      },
-    });
+    const existing = await prisma.objectType.findFirst({ where: { nameNl: ot.nameNl, clientName: null } });
+    const record = existing
+      ? await prisma.objectType.update({
+          where: { id: existing.id },
+          data: { nameFr: ot.nameFr, heliOmCategory: ot.heliOmCategory, ...(ot.exportParty ? { exportParty: ot.exportParty } : {}) },
+        })
+      : await prisma.objectType.create({
+          data: {
+            nameNl: ot.nameNl,
+            nameFr: ot.nameFr,
+            heliOmCategory: ot.heliOmCategory,
+            ...(ot.exportParty ? { exportParty: ot.exportParty } : {}),
+          },
+        });
 
     for (const btName of ot.applicableBuildings) {
       const btId = btMap.get(btName);

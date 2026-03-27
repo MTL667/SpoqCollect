@@ -39,6 +39,7 @@ model ObjectType {
   active              Boolean                   @default(true)
   isCustom            Boolean                   @default(false) @map("is_custom")
   clientName          String?                   @map("client_name")
+  exportParty         String                    @default("aceg") @map("export_party")
   buildingTypes       ObjectTypeBuildingType[]
   scanRecords         ScanRecord[]
   serviceCodeMappings ServiceCodeMapping[]

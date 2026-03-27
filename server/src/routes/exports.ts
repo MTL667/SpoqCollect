@@ -1,8 +1,9 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
+import archiver from 'archiver';
 import { prisma } from '../lib/prisma.js';
 import { generateHeliOmExcel } from '../services/export-heli.js';
 import { generateClientReport } from '../services/export-report.js';
-import { generateOdooCsvBuffer } from '../services/odoo-export.js';
+import { generateOdooCsvBuffers } from '../services/odoo-export.js';
 
 export const exportsRouter = Router();
 
@@ -103,18 +104,45 @@ exportsRouter.post('/:id/export/odoo', async (req: Request, res: Response, next:
       return;
     }
 
-    const { csv, unmappedCount } = await generateOdooCsvBuffer(sessionId);
+    const files = await generateOdooCsvBuffers(sessionId);
+
+    if (files.length === 0) {
+      res.status(400).json({ error: { code: 'NO_DATA', message: 'Geen bevestigde scans om te exporteren' } });
+      return;
+    }
 
     const sanitizedName = session.clientName.replace(/[^a-zA-Z0-9 -]/g, '').replace(/\s+/g, '-');
     const dateStr = new Date().toISOString().split('T')[0];
-    const filename = `odoo-${sanitizedName}-${dateStr}.csv`;
+    const totalUnmapped = files.reduce((sum, f) => sum + f.unmappedCount, 0);
 
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    if (unmappedCount > 0) {
-      res.setHeader('X-Odoo-Unmapped-Count', String(unmappedCount));
+    if (files.length === 1) {
+      const file = files[0];
+      const filename = `odoo-${file.party}-${sanitizedName}-${dateStr}.csv`;
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('X-Odoo-Export-Type', 'csv');
+      if (totalUnmapped > 0) {
+        res.setHeader('X-Odoo-Unmapped-Count', String(totalUnmapped));
+      }
+      res.send(file.csv);
+      return;
     }
-    res.send(csv);
+
+    const zipFilename = `odoo-${sanitizedName}-${dateStr}.zip`;
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${zipFilename}"`);
+    res.setHeader('X-Odoo-Export-Type', 'zip');
+    res.setHeader('X-Odoo-Export-Parties', files.map((f) => f.party).join(','));
+    if (totalUnmapped > 0) {
+      res.setHeader('X-Odoo-Unmapped-Count', String(totalUnmapped));
+    }
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    archive.pipe(res);
+    for (const file of files) {
+      archive.append(file.csv, { name: `odoo-${file.party}-${sanitizedName}-${dateStr}.csv` });
+    }
+    await archive.finalize();
   } catch (error) {
     next(error);
   }

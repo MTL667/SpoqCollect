@@ -18,6 +18,7 @@ export interface OdooLine {
   unmapped: boolean;
   parentScanId: string | null;
   lineType: OdooLineType;
+  exportParty: string;
 }
 
 /**
@@ -57,7 +58,9 @@ export async function deriveOdooLines(sessionId: string): Promise<OdooLine[]> {
 
   for (const scan of session.scanRecords) {
     const typeId = scan.confirmedTypeId!;
-    const typeNl = scan.confirmedType!.nameNl;
+    const confirmedType = scan.confirmedType!;
+    const typeNl = confirmedType.nameNl;
+    const party = confirmedType.exportParty;
 
     const candidates = mappings.filter((m) => m.objectTypeId === typeId);
     let code: string | null = null;
@@ -96,6 +99,7 @@ export async function deriveOdooLines(sessionId: string): Promise<OdooLine[]> {
         unmapped: false,
         parentScanId: scan.parentScanId,
         lineType: 'startprijs',
+        exportParty: party,
       });
     }
 
@@ -108,16 +112,14 @@ export async function deriveOdooLines(sessionId: string): Promise<OdooLine[]> {
       unmapped,
       parentScanId: scan.parentScanId,
       lineType: startCode ? 'stukprijs' : null,
+      exportParty: party,
     });
   }
 
   return lines;
 }
 
-export async function generateOdooCsvBuffer(sessionId: string): Promise<{ csv: Buffer; unmappedCount: number }> {
-  const lines = await deriveOdooLines(sessionId);
-  const unmappedCount = lines.filter((l) => l.unmapped).length;
-
+function linesToCsv(lines: OdooLine[]): Buffer {
   const rows = lines.map((l) => ({
     scan_id: l.scanId,
     parent_scan_id: l.parentScanId ?? '',
@@ -145,7 +147,48 @@ export async function generateOdooCsvBuffer(sessionId: string): Promise<{ csv: B
       ].join(','),
     )
     .join('\n');
-  const csv = Buffer.from(`${headerLine}\n${body}\n`, 'utf-8');
+  return Buffer.from(`${headerLine}\n${body}\n`, 'utf-8');
+}
 
+export interface OdooExportFile {
+  party: string;
+  csv: Buffer;
+  unmappedCount: number;
+}
+
+/**
+ * Generate separate CSV buffers per export party (aceg, simafire, firesecure).
+ * Only returns files for parties that have at least one line.
+ */
+export async function generateOdooCsvBuffers(sessionId: string): Promise<OdooExportFile[]> {
+  const lines = await deriveOdooLines(sessionId);
+
+  const grouped = new Map<string, OdooLine[]>();
+  for (const line of lines) {
+    const existing = grouped.get(line.exportParty);
+    if (existing) {
+      existing.push(line);
+    } else {
+      grouped.set(line.exportParty, [line]);
+    }
+  }
+
+  const files: OdooExportFile[] = [];
+  for (const [party, partyLines] of grouped) {
+    files.push({
+      party,
+      csv: linesToCsv(partyLines),
+      unmappedCount: partyLines.filter((l) => l.unmapped).length,
+    });
+  }
+
+  return files;
+}
+
+/** @deprecated Use generateOdooCsvBuffers instead */
+export async function generateOdooCsvBuffer(sessionId: string): Promise<{ csv: Buffer; unmappedCount: number }> {
+  const lines = await deriveOdooLines(sessionId);
+  const unmappedCount = lines.filter((l) => l.unmapped).length;
+  const csv = linesToCsv(lines);
   return { csv, unmappedCount };
 }

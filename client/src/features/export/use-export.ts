@@ -53,14 +53,20 @@ export function useExportOdoo(sessionId: string, clientAddress: string) {
         throw new Error(err.error?.message ?? 'Export failed');
       }
 
+      const exportType = res.headers.get('X-Odoo-Export-Type') ?? 'csv';
       const unmapped = res.headers.get('X-Odoo-Unmapped-Count');
       const blob = await res.blob();
-      return { blob, unmappedCount: unmapped ? parseInt(unmapped, 10) : 0 };
+      return {
+        blob,
+        exportType,
+        unmappedCount: unmapped ? parseInt(unmapped, 10) : 0,
+      };
     },
-    onSuccess: ({ blob, unmappedCount }) => {
+    onSuccess: ({ blob, exportType, unmappedCount }) => {
       const sanitized = clientAddress.replace(/[^a-zA-Z0-9 -]/g, '').replace(/\s+/g, '-');
       const date = new Date().toISOString().split('T')[0];
-      triggerDownload(blob, `odoo-${sanitized}-${date}.csv`);
+      const ext = exportType === 'zip' ? 'zip' : 'csv';
+      triggerDownload(blob, `odoo-${sanitized}-${date}.${ext}`);
       if (unmappedCount > 0) {
         window.alert(`${unmappedCount} regel(s) zonder productcode-mapping (UNMAPPED in CSV).`);
       }

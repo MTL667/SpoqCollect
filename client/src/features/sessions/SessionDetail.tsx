@@ -12,7 +12,7 @@ import {
   formatAddress,
 } from './use-sessions';
 import type { LocationItem, FloorItem, ScanRecordItem } from './use-sessions';
-import { useUpdateQuantity, useManualAdd, useDeleteScan, usePatchScan, useCreateCustomObjectType } from '../scan/use-scan';
+import { useUpdateQuantity, useManualAdd, useDeleteScan, usePatchScan, useCreateCustomObjectType, useConfirmScan } from '../scan/use-scan';
 import { apiClient } from '../../lib/api-client';
 import PhotoThumbnail from '../../shared/components/PhotoThumbnail';
 import ConfirmDialog from '../../shared/components/ConfirmDialog';
@@ -302,6 +302,7 @@ function FloorSection({
   const duplicateFloor = useDuplicateFloor(sessionId);
   const patchScan = usePatchScan(sessionId);
   const createCustomType = useCreateCustomObjectType();
+  const confirmScan = useConfirmScan();
 
   const [collapsed, setCollapsed] = useState(false);
   const [parentPickerFor, setParentPickerFor] = useState<string | null>(null);
@@ -316,6 +317,7 @@ function FloorSection({
   const [showDeleteFloorConfirm, setShowDeleteFloorConfirm] = useState(false);
   const [showDuplicatePicker, setShowDuplicatePicker] = useState(false);
   const [editTypeScanId, setEditTypeScanId] = useState<string | null>(null);
+  const [classifyScanId, setClassifyScanId] = useState<string | null>(null);
   const [showInlineCreate, setShowInlineCreate] = useState(false);
   const [inlineCustomName, setInlineCustomName] = useState('');
 
@@ -323,7 +325,7 @@ function FloorSection({
     queryKey: ['object-types-all', clientName],
     queryFn: () => apiClient<Array<{ id: string; nameNl: string }>>(`/api/object-types?clientName=${encodeURIComponent(clientName)}`),
     staleTime: Infinity,
-    enabled: showManualAdd || editTypeScanId !== null,
+    enabled: showManualAdd || editTypeScanId !== null || classifyScanId !== null,
   });
 
   const typesInLocation = useMemo(() => {
@@ -528,20 +530,31 @@ function FloorSection({
                 </div>
               ) : (
                 <div className="flex items-center gap-2 shrink-0">
+                  {isActive && (record.status === 'classified' || record.status === 'pending') && (
+                    <button
+                      type="button"
+                      onClick={() => setClassifyScanId(record.id)}
+                      className="text-xs px-2 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    >
+                      Classificeer
+                    </button>
+                  )}
                   {record.quantity > 1 && (
                     <span className="text-xs font-medium text-gray-500">×{record.quantity}</span>
                   )}
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full ${
-                      record.status === 'confirmed'
-                        ? 'bg-green-100 text-green-700'
-                        : record.status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-700'
-                          : 'bg-gray-100 text-gray-600'
-                    }`}
-                  >
-                    {record.status === 'confirmed' ? 'Bevestigd' : record.status === 'pending' ? 'In afwachting' : record.status}
-                  </span>
+                  {!(isActive && (record.status === 'classified' || record.status === 'pending')) && (
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full ${
+                        record.status === 'confirmed'
+                          ? 'bg-green-100 text-green-700'
+                          : record.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {record.status === 'confirmed' ? 'Bevestigd' : record.status === 'pending' ? 'In afwachting' : record.status}
+                    </span>
+                  )}
                   {isActive && (
                     <button
                       onClick={() => setDeleteRecordId(record.id)}
@@ -768,6 +781,65 @@ function FloorSection({
           </div>
         </div>
       )}
+
+      {/* Classify scan modal */}
+      {classifyScanId && objectTypes && (() => {
+        const scanToClassify = floor.scanRecords.find((r) => r.id === classifyScanId);
+        const aiTypeId = scanToClassify?.aiProposedTypeId;
+        const aiConfidence = scanToClassify?.aiConfidence;
+        const aiTypeName = aiTypeId ? objectTypes.find((t) => t.id === aiTypeId)?.nameNl : null;
+        return (
+          <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/40 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-sm w-full max-h-[70vh] overflow-y-auto">
+              {aiTypeId && aiTypeName && (
+                <div className="px-4 pt-4 pb-2">
+                  <p className="text-xs text-gray-500 mb-1">AI-voorstel {aiConfidence ? `(${Math.round(aiConfidence * 100)}%)` : ''}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      confirmScan.mutate({ scanId: classifyScanId, confirmedTypeId: aiTypeId });
+                      setClassifyScanId(null);
+                    }}
+                    className="w-full text-left p-3 border-2 border-blue-400 bg-blue-50 rounded-lg hover:bg-blue-100 font-medium text-gray-900"
+                  >
+                    {aiTypeName}
+                  </button>
+                  <div className="relative my-3">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
+                    <div className="relative flex justify-center"><span className="bg-white px-2 text-xs text-gray-400">of kies een ander type</span></div>
+                  </div>
+                </div>
+              )}
+              <ObjectTypeSelector
+                objectTypes={objectTypes}
+                onSelect={(typeId) => {
+                  confirmScan.mutate({ scanId: classifyScanId, confirmedTypeId: typeId });
+                  setClassifyScanId(null);
+                }}
+                isLoading={confirmScan.isPending}
+                onCreateCustom={(name) => {
+                  createCustomType.mutate({ nameNl: name, clientName }, {
+                    onSuccess: (data) => {
+                      confirmScan.mutate({ scanId: classifyScanId!, confirmedTypeId: data.id });
+                      setClassifyScanId(null);
+                    },
+                  });
+                }}
+                isCreating={createCustomType.isPending}
+              />
+              <div className="px-4 pb-4">
+                <button
+                  type="button"
+                  className="w-full py-2 text-sm text-gray-600 border border-gray-200 rounded-md"
+                  onClick={() => setClassifyScanId(null)}
+                >
+                  Annuleren
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Delete record confirmation */}
       <ConfirmDialog
