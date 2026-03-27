@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import CameraView from './CameraView';
 import ClassificationResult from './ClassificationResult';
-import { useUploadScan, useConfirmScan } from './use-scan';
+import { useUploadScan, useConfirmScan, useCreateCustomObjectType } from './use-scan';
 import { useSession, useCreateLocation, useCreateFloor, usePatchSessionPrompts } from '../sessions/use-sessions';
 import { apiClient } from '../../lib/api-client';
 import type { LocationItem } from '../sessions/use-sessions';
@@ -28,6 +28,7 @@ export default function ScanFlow() {
   const { data: session, refetch: refetchSession } = useSession(sessionId!);
   const uploadScan = useUploadScan(sessionId!);
   const confirmScan = useConfirmScan();
+  const createCustomType = useCreateCustomObjectType();
   const patchPrompts = usePatchSessionPrompts(sessionId!);
   const {
     data: catalog,
@@ -57,13 +58,13 @@ export default function ScanFlow() {
     catalog.sessionStartFields.length > 0 &&
     sessionPrompt?.startCompleted !== true;
 
+  const clientName = session?.clientName;
   const { data: objectTypes } = useQuery({
-    queryKey: ['object-types', session?.buildingTypeId],
+    queryKey: ['object-types', clientName],
     queryFn: () =>
       apiClient<Array<{ id: string; nameNl: string; nameFr: string; heliOmCategory: string; active: boolean }>>(
-        `/api/object-types?buildingTypeId=${session?.buildingTypeId}`,
+        `/api/object-types${clientName ? `?clientName=${encodeURIComponent(clientName)}` : ''}`,
       ),
-    enabled: !!session?.buildingTypeId,
     staleTime: Infinity,
   });
 
@@ -374,6 +375,12 @@ export default function ScanFlow() {
         objectTypes={objectTypes?.map((t) => ({ id: t.id, nameNl: t.nameNl })) ?? []}
         onConfirm={handleConfirm}
         isLoading={confirmScan.isPending}
+        onCreateCustom={clientName ? (name) => {
+          createCustomType.mutate({ nameNl: name, clientName }, {
+            onSuccess: (data) => handleConfirm(data.id),
+          });
+        } : undefined}
+        isCreating={createCustomType.isPending}
       />
     </div>
   );

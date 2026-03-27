@@ -12,7 +12,7 @@ import {
   formatAddress,
 } from './use-sessions';
 import type { LocationItem, FloorItem, ScanRecordItem } from './use-sessions';
-import { useUpdateQuantity, useManualAdd, useDeleteScan, usePatchScan } from '../scan/use-scan';
+import { useUpdateQuantity, useManualAdd, useDeleteScan, usePatchScan, useCreateCustomObjectType } from '../scan/use-scan';
 import { apiClient } from '../../lib/api-client';
 import PhotoThumbnail from '../../shared/components/PhotoThumbnail';
 import ConfirmDialog from '../../shared/components/ConfirmDialog';
@@ -21,6 +21,7 @@ import CameraView from '../scan/CameraView';
 import { usePromptCatalog } from '../prompts/use-prompt-catalog';
 import SessionCompleteWizard from '../prompts/SessionCompleteWizard';
 import DraftAssetsPanel from '../prior-reports/DraftAssetsPanel';
+import ObjectTypeSelector from '../scan/ObjectTypeSelector';
 
 export default function SessionDetail() {
   const { id } = useParams<{ id: string }>();
@@ -122,6 +123,7 @@ export default function SessionDetail() {
               isActive={isActive}
               allFloors={allFloors}
               sessionScanRecords={session.scanRecords}
+              clientName={session.clientName}
             />
           ))
         )}
@@ -189,12 +191,14 @@ function LocationSection({
   isActive,
   allFloors,
   sessionScanRecords,
+  clientName,
 }: {
   location: LocationItem;
   sessionId: string;
   isActive: boolean;
   allFloors: FloorItem[];
   sessionScanRecords: ScanRecordItem[];
+  clientName: string;
 }) {
   const createFloorMutation = useCreateFloor(sessionId, location.id);
   const [newFloorName, setNewFloorName] = useState('');
@@ -225,6 +229,7 @@ function LocationSection({
           allRecordsInLocation={location.floors.flatMap((f) => f.scanRecords)}
           allFloors={allFloors}
           sessionScanRecords={sessionScanRecords}
+          clientName={clientName}
         />
       ))}
 
@@ -280,6 +285,7 @@ function FloorSection({
   allRecordsInLocation,
   allFloors,
   sessionScanRecords,
+  clientName,
 }: {
   floor: FloorItem;
   isActive: boolean;
@@ -287,6 +293,7 @@ function FloorSection({
   allRecordsInLocation: ScanRecordItem[];
   allFloors: FloorItem[];
   sessionScanRecords: ScanRecordItem[];
+  clientName: string;
 }) {
   const updateQuantity = useUpdateQuantity();
   const manualAdd = useManualAdd(sessionId);
@@ -294,6 +301,7 @@ function FloorSection({
   const deleteFloor = useDeleteFloor(sessionId);
   const duplicateFloor = useDuplicateFloor(sessionId);
   const patchScan = usePatchScan(sessionId);
+  const createCustomType = useCreateCustomObjectType();
 
   const [collapsed, setCollapsed] = useState(false);
   const [parentPickerFor, setParentPickerFor] = useState<string | null>(null);
@@ -307,12 +315,15 @@ function FloorSection({
   const [deleteRecordId, setDeleteRecordId] = useState<string | null>(null);
   const [showDeleteFloorConfirm, setShowDeleteFloorConfirm] = useState(false);
   const [showDuplicatePicker, setShowDuplicatePicker] = useState(false);
+  const [editTypeScanId, setEditTypeScanId] = useState<string | null>(null);
+  const [showInlineCreate, setShowInlineCreate] = useState(false);
+  const [inlineCustomName, setInlineCustomName] = useState('');
 
   const { data: objectTypes } = useQuery({
-    queryKey: ['object-types-all'],
-    queryFn: () => apiClient<Array<{ id: string; nameNl: string }>>('/api/object-types'),
+    queryKey: ['object-types-all', clientName],
+    queryFn: () => apiClient<Array<{ id: string; nameNl: string }>>(`/api/object-types?clientName=${encodeURIComponent(clientName)}`),
     staleTime: Infinity,
-    enabled: showManualAdd,
+    enabled: showManualAdd || editTypeScanId !== null,
   });
 
   const typesInLocation = useMemo(() => {
@@ -358,6 +369,8 @@ function FloorSection({
     setManualQty(1);
     setPhotoBlob(null);
     setSearch('');
+    setShowInlineCreate(false);
+    setInlineCustomName('');
   }
 
   function handleDeleteRecord() {
@@ -477,6 +490,14 @@ function FloorSection({
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
+                      onClick={() => setEditTypeScanId(record.id)}
+                      className="text-xs text-gray-500 hover:text-blue-600 px-1"
+                      title="Wijzig type"
+                    >
+                      Wijzig
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setParentPickerFor(record.id)}
                       className="text-xs text-blue-600 hover:underline px-1"
                     >
@@ -563,10 +584,67 @@ function FloorSection({
                     </button>
                   );
                 })}
-                {filtered.length === 0 && (
+                {filtered.length === 0 && !showInlineCreate && (
                   <p className="text-xs text-gray-400 text-center py-3">Geen resultaten</p>
                 )}
               </div>
+              {!showInlineCreate ? (
+                <button
+                  type="button"
+                  onClick={() => { setShowInlineCreate(true); setInlineCustomName(search); }}
+                  className="w-full text-xs text-blue-600 hover:text-blue-700 py-2 border border-dashed border-blue-300 rounded-lg hover:bg-blue-50"
+                >
+                  + Nieuw type aanmaken
+                </button>
+              ) : (
+                <div className="border border-blue-200 rounded-lg p-2 space-y-2 bg-blue-50/50">
+                  <input
+                    type="text"
+                    value={inlineCustomName}
+                    onChange={(e) => setInlineCustomName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && inlineCustomName.trim()) {
+                        createCustomType.mutate({ nameNl: inlineCustomName.trim(), clientName }, {
+                          onSuccess: (data) => {
+                            handleTypeSelected(data.id);
+                            setShowInlineCreate(false);
+                            setInlineCustomName('');
+                          },
+                        });
+                      }
+                    }}
+                    placeholder="Naam nieuw objecttype"
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!inlineCustomName.trim()) return;
+                        createCustomType.mutate({ nameNl: inlineCustomName.trim(), clientName }, {
+                          onSuccess: (data) => {
+                            handleTypeSelected(data.id);
+                            setShowInlineCreate(false);
+                            setInlineCustomName('');
+                          },
+                        });
+                      }}
+                      disabled={!inlineCustomName.trim() || createCustomType.isPending}
+                      className="flex-1 px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {createCustomType.isPending ? 'Aanmaken...' : 'Aanmaken'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowInlineCreate(false); setInlineCustomName(''); }}
+                      className="px-2 py-1 text-xs text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                    >
+                      Annuleren
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -653,6 +731,40 @@ function FloorSection({
             >
               Sluiten
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit type modal */}
+      {editTypeScanId && objectTypes && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-sm w-full max-h-[70vh] overflow-y-auto">
+            <ObjectTypeSelector
+              objectTypes={objectTypes}
+              onSelect={(typeId) => {
+                patchScan.mutate({ scanId: editTypeScanId, confirmedTypeId: typeId });
+                setEditTypeScanId(null);
+              }}
+              isLoading={patchScan.isPending}
+              onCreateCustom={(name) => {
+                createCustomType.mutate({ nameNl: name, clientName }, {
+                  onSuccess: (data) => {
+                    patchScan.mutate({ scanId: editTypeScanId!, confirmedTypeId: data.id });
+                    setEditTypeScanId(null);
+                  },
+                });
+              }}
+              isCreating={createCustomType.isPending}
+            />
+            <div className="px-4 pb-4">
+              <button
+                type="button"
+                className="w-full py-2 text-sm text-gray-600 border border-gray-200 rounded-md"
+                onClick={() => setEditTypeScanId(null)}
+              >
+                Annuleren
+              </button>
+            </div>
           </div>
         </div>
       )}

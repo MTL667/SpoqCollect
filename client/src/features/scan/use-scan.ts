@@ -178,19 +178,50 @@ export function useConfirmScan() {
   });
 }
 
+export function useCreateCustomObjectType() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ nameNl, clientName }: { nameNl: string; clientName: string }) => {
+      const token = localStorage.getItem('inventarispoq_auth');
+      const parsed = token ? JSON.parse(token) : null;
+      const res = await fetch('/api/object-types', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(parsed?.token ? { Authorization: `Bearer ${parsed.token}` } : {}),
+        },
+        body: JSON.stringify({ nameNl, clientName }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message ?? 'Aanmaken mislukt');
+      }
+      const json = await res.json();
+      return json.data as { id: string; nameNl: string; nameFr: string };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['object-types'] });
+      qc.invalidateQueries({ queryKey: ['object-types-all'] });
+    },
+  });
+}
+
 export function usePatchScan(sessionId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { scanId: string; parentScanId?: string | null }) => {
+    mutationFn: async (input: { scanId: string; parentScanId?: string | null; confirmedTypeId?: string }) => {
       const token = localStorage.getItem('inventarispoq_auth');
       const parsed = token ? JSON.parse(token) : null;
+      const body: Record<string, unknown> = {};
+      if (input.parentScanId !== undefined) body.parentScanId = input.parentScanId;
+      if (input.confirmedTypeId !== undefined) body.confirmedTypeId = input.confirmedTypeId;
       const res = await fetch(`/api/scans/${input.scanId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           ...(parsed?.token ? { Authorization: `Bearer ${parsed.token}` } : {}),
         },
-        body: JSON.stringify({ parentScanId: input.parentScanId }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const err = await res.json();

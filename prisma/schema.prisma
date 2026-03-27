@@ -33,15 +33,18 @@ model BuildingType {
 
 model ObjectType {
   id                  String                    @id @default(cuid())
-  nameNl              String                    @unique @map("name_nl")
+  nameNl              String                    @map("name_nl")
   nameFr              String                    @map("name_fr")
   heliOmCategory      String                    @map("heli_om_category")
   active              Boolean                   @default(true)
+  isCustom            Boolean                   @default(false) @map("is_custom")
+  clientName          String?                   @map("client_name")
   buildingTypes       ObjectTypeBuildingType[]
   scanRecords         ScanRecord[]
   serviceCodeMappings ServiceCodeMapping[]
   draftAssetsAsSuggestion DraftAsset[]          @relation("DraftAssetSuggestedType")
 
+  @@unique([nameNl, clientName])
   @@map("object_types")
 }
 

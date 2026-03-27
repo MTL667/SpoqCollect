@@ -21,6 +21,8 @@ interface ClassificationResultProps {
   objectTypes: ObjectTypeInfo[];
   onConfirm: (typeId: string) => void;
   isLoading?: boolean;
+  onCreateCustom?: (name: string) => void;
+  isCreating?: boolean;
 }
 
 export default function ClassificationResult({
@@ -30,6 +32,8 @@ export default function ClassificationResult({
   objectTypes,
   onConfirm,
   isLoading = false,
+  onCreateCustom,
+  isCreating = false,
 }: ClassificationResultProps) {
   const [showFullList, setShowFullList] = useState(false);
 
@@ -42,6 +46,8 @@ export default function ClassificationResult({
         objectTypes={objectTypes}
         onSelect={onConfirm}
         isLoading={isLoading}
+        onCreateCustom={onCreateCustom}
+        isCreating={isCreating}
       />
     );
   }

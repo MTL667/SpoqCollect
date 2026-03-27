@@ -7,17 +7,18 @@ import { logger } from '../lib/logger.js';
 
 export const scansRouter = Router();
 
-/** Update scan parent link or on-scan answers (Epic 6). */
+/** Update scan parent link, on-scan answers, or confirmed object type. */
 scansRouter.patch('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const scanId = req.params.id as string;
     const body = req.body as {
       parentScanId?: string | null;
       onScanPromptAnswers?: Record<string, unknown>;
+      confirmedTypeId?: string;
     };
 
-    if (body.parentScanId === undefined && body.onScanPromptAnswers === undefined) {
-      res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'parentScanId of onScanPromptAnswers vereist' } });
+    if (body.parentScanId === undefined && body.onScanPromptAnswers === undefined && body.confirmedTypeId === undefined) {
+      res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'parentScanId, onScanPromptAnswers of confirmedTypeId vereist' } });
       return;
     }
 
@@ -36,7 +37,7 @@ scansRouter.patch('/:id', async (req: Request, res: Response, next: NextFunction
       return;
     }
 
-    const data: { parentScanId?: string | null; onScanPromptAnswers?: object } = {};
+    const data: { parentScanId?: string | null; onScanPromptAnswers?: object; confirmedTypeId?: string; confirmedAt?: Date } = {};
 
     if (body.parentScanId !== undefined) {
       if (body.parentScanId === null) {
@@ -57,6 +58,16 @@ scansRouter.patch('/:id', async (req: Request, res: Response, next: NextFunction
 
     if (body.onScanPromptAnswers !== undefined) {
       data.onScanPromptAnswers = body.onScanPromptAnswers;
+    }
+
+    if (body.confirmedTypeId !== undefined) {
+      const objectType = await prisma.objectType.findUnique({ where: { id: body.confirmedTypeId } });
+      if (!objectType || !objectType.active) {
+        res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Ongeldig objecttype' } });
+        return;
+      }
+      data.confirmedTypeId = body.confirmedTypeId;
+      data.confirmedAt = new Date();
     }
 
     await prisma.scanRecord.update({
