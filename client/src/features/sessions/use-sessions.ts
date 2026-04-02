@@ -50,6 +50,12 @@ interface LocationItem {
   floors: FloorItem[];
 }
 
+interface MappingProfileSummary {
+  id: string;
+  name: string;
+  country: string;
+}
+
 interface SessionDetail {
   id: string;
   clientName: string;
@@ -63,6 +69,8 @@ interface SessionDetail {
   completedAt: string | null;
   buildingType: BuildingTypeSummary;
   buildingTypeId: string;
+  mappingProfileId?: string | null;
+  mappingProfile?: MappingProfileSummary | null;
   inspector: { id: string; name: string };
   locations: LocationItem[];
   scanRecords: ScanRecordItem[];
@@ -70,7 +78,7 @@ interface SessionDetail {
   mappingVersion?: number;
 }
 
-export type { SessionListItem, SessionDetail, LocationItem, FloorItem, ScanRecordItem };
+export type { SessionListItem, SessionDetail, LocationItem, FloorItem, ScanRecordItem, MappingProfileSummary };
 
 export function useSessions() {
   return useQuery({
@@ -95,6 +103,7 @@ interface CreateSessionData {
   postalCode: string;
   city: string;
   buildingTypeId: string;
+  mappingProfileId?: string;
 }
 
 export function useCreateSession() {
@@ -170,6 +179,15 @@ export function useReopenSession(sessionId: string) {
       qc.invalidateQueries({ queryKey: ['sessions'] });
       qc.invalidateQueries({ queryKey: ['sessions', sessionId] });
     },
+  });
+}
+
+export function useMappingProfiles() {
+  return useQuery({
+    queryKey: ['mapping-profiles'],
+    queryFn: () =>
+      apiClient<Array<{ id: string; name: string; country: string; active: boolean }>>('/api/admin/mapping-profiles'),
+    staleTime: Infinity,
   });
 }
 

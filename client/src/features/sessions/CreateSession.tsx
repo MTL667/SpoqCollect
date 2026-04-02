@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
-import { useCreateSession, useBuildingTypes } from './use-sessions';
+import { useCreateSession, useBuildingTypes, useMappingProfiles } from './use-sessions';
 import { useUploadPriorReports } from '../prior-reports/use-prior-reports';
 import CameraView from '../scan/CameraView';
 
@@ -9,6 +9,7 @@ type WizardStep = 'client' | 'reports';
 export default function CreateSession() {
   const navigate = useNavigate();
   const { data: buildingTypes, isLoading: btLoading } = useBuildingTypes();
+  const { data: mappingProfiles, isLoading: mpLoading } = useMappingProfiles();
   const createSession = useCreateSession();
   const [step, setStep] = useState<WizardStep>('client');
   const uploadReports = useUploadPriorReports();
@@ -21,6 +22,7 @@ export default function CreateSession() {
     postalCode: '',
     city: '',
     buildingTypeId: '',
+    mappingProfileId: '',
   });
   const [reportFiles, setReportFiles] = useState<File[]>([]);
   const [reportPhotoBlobs, setReportPhotoBlobs] = useState<Blob[]>([]);
@@ -56,6 +58,7 @@ export default function CreateSession() {
         postalCode: form.postalCode.trim(),
         city: form.city.trim(),
         buildingTypeId: form.buildingTypeId,
+        ...(form.mappingProfileId ? { mappingProfileId: form.mappingProfileId } : {}),
       },
       {
         onSuccess: async (session) => {
@@ -233,6 +236,26 @@ export default function CreateSession() {
             ))}
           </select>
           {errors.buildingTypeId && <p className="text-red-600 text-sm mt-1">{errors.buildingTypeId}</p>}
+        </div>
+
+        <div>
+          <label htmlFor="mappingProfile" className="block text-sm font-medium text-gray-700 mb-1">
+            Mapping profiel (land)
+          </label>
+          <select
+            id="mappingProfile"
+            value={form.mappingProfileId}
+            onChange={(e) => update('mappingProfileId', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={mpLoading}
+          >
+            <option value="">Geen profiel (legacy)</option>
+            {mappingProfiles?.map((mp) => (
+              <option key={mp.id} value={mp.id}>
+                {mp.name} ({mp.country})
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="flex gap-3 pt-2">

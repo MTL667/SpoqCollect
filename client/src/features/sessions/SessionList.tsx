@@ -45,6 +45,12 @@ export default function SessionList() {
         >
           Mapping regels
         </button>
+        <button
+          onClick={() => navigate('/admin/profiles')}
+          className="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-md hover:bg-gray-300"
+        >
+          Profielen
+        </button>
       </div>
 
       {isLoading && <p className="text-gray-500">Laden...</p>}

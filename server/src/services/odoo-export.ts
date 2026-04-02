@@ -34,13 +34,6 @@ interface MappingCandidate {
   priority: number;
 }
 
-/**
- * Resolve the best mapping rule for a given objectType, considering:
- * 1. regime match
- * 2. region match (exact or null=wildcard)
- * 3. quantity range (min/max, null=no limit)
- * 4. highest priority wins among qualifying rules
- */
 function resolveMapping(
   candidates: MappingCandidate[],
   opts: { regime: string | null; region: string | null; totalQuantity: number },
@@ -59,14 +52,6 @@ function resolveMapping(
   return qualifying[0];
 }
 
-/**
- * Map scans to Odoo-oriented lines using ServiceCodeMapping rules.
- *
- * Resolution considers regime, region (from postal code), and quantity thresholds.
- * When a mapping has a startPriceProductCode, TWO lines are emitted:
- *   1. A "startprijs" line (qty=1) – emitted only ONCE per ObjectType per session
- *   2. A "stukprijs" line (qty=N) – emitted for each scan
- */
 export async function deriveOdooLines(sessionId: string): Promise<OdooLine[]> {
   const session = await prisma.inventorySession.findUnique({
     where: { id: sessionId },
@@ -75,6 +60,15 @@ export async function deriveOdooLines(sessionId: string): Promise<OdooLine[]> {
         where: { status: 'confirmed', confirmedTypeId: { not: null } },
         include: { confirmedType: true },
       },
+      mappingProfile: {
+        include: {
+          subcontractors: {
+            where: { active: true },
+            include: { objectTypes: true },
+          },
+          subassetConfigs: true,
+        },
+      },
     },
   });
 
@@ -82,20 +76,44 @@ export async function deriveOdooLines(sessionId: string): Promise<OdooLine[]> {
     throw new Error('Session not found');
   }
 
+  const profile = session.mappingProfile;
   const promptData = (session.sessionPromptData as { end?: Record<string, string> } | null) ?? {};
   const globalRegime = promptData.end?.brandVeiligheidRegime ?? null;
-  const sessionRegion = deriveRegion(session.postalCode);
+  const sessionRegion = profile?.hasRegionLogic ? deriveRegion(session.postalCode) : null;
 
-  const mappings = await prisma.serviceCodeMapping.findMany({
-    where: { active: true, version: session.mappingVersion },
-  });
+  let mappings: MappingCandidate[];
+  if (profile) {
+    mappings = await prisma.profileMappingRule.findMany({
+      where: { profileId: profile.id, active: true },
+    });
+  } else {
+    mappings = await prisma.serviceCodeMapping.findMany({
+      where: { active: true, version: session.mappingVersion },
+    });
+  }
 
-  const typesWithChildren = new Set(
-    (await prisma.objectType.findMany({
-      where: { childObjectTypes: { some: { active: true } } },
-      select: { id: true },
-    })).map((t) => t.id),
-  );
+  // Build subcontractor lookup: objectTypeId → exportLabel
+  const partyByObjectType = new Map<string, string>();
+  if (profile) {
+    for (const sub of profile.subcontractors) {
+      for (const link of sub.objectTypes) {
+        partyByObjectType.set(link.objectTypeId, sub.exportLabel);
+      }
+    }
+  }
+
+  // Build parent types set (types that have children in this profile's subasset config)
+  let typesWithChildren: Set<string>;
+  if (profile) {
+    typesWithChildren = new Set(profile.subassetConfigs.map((c) => c.parentObjectTypeId));
+  } else {
+    typesWithChildren = new Set(
+      (await prisma.objectType.findMany({
+        where: { childObjectTypes: { some: { active: true } } },
+        select: { id: true },
+      })).map((t) => t.id),
+    );
+  }
 
   const quantityByType = new Map<string, number>();
   for (const scan of session.scanRecords) {
@@ -110,7 +128,11 @@ export async function deriveOdooLines(sessionId: string): Promise<OdooLine[]> {
     const typeId = scan.confirmedTypeId!;
     const confirmedType = scan.confirmedType!;
     const typeNl = confirmedType.nameNl;
-    const party = confirmedType.exportParty;
+
+    const party = profile
+      ? (partyByObjectType.get(typeId) ?? 'Aceg Odoo')
+      : confirmedType.exportParty;
+
     const totalQty = quantityByType.get(typeId) ?? scan.quantity;
 
     const candidates = mappings.filter((m) => m.objectTypeId === typeId);
@@ -199,10 +221,6 @@ export interface OdooExportFile {
   unmappedCount: number;
 }
 
-/**
- * Generate separate CSV buffers per export party (aceg, simafire, firesecure).
- * Only returns files for parties that have at least one line.
- */
 export async function generateOdooCsvBuffers(sessionId: string): Promise<OdooExportFile[]> {
   const lines = await deriveOdooLines(sessionId);
 

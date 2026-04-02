@@ -76,6 +76,8 @@ export default function ScanFlow() {
     sessionPrompt?.startCompleted !== true;
 
   const clientName = session?.clientName;
+  const profileId = (session as { mappingProfileId?: string } | undefined)?.mappingProfileId;
+
   const { data: objectTypes } = useQuery({
     queryKey: ['object-types', clientName],
     queryFn: () =>
@@ -84,6 +86,31 @@ export default function ScanFlow() {
       ),
     staleTime: Infinity,
   });
+
+  const { data: profileSubassets } = useQuery({
+    queryKey: ['profile-subassets', profileId],
+    queryFn: () =>
+      apiClient<{
+        subassetConfigs: Array<{
+          parentObjectTypeId: string;
+          childObjectType: { id: string; nameNl: string };
+          sortOrder: number;
+        }>;
+      }>(`/api/admin/mapping-profiles/${profileId}`).then((p) => p.subassetConfigs),
+    enabled: !!profileId,
+    staleTime: Infinity,
+  });
+
+  function getChildrenForType(typeId: string): ChildObjectType[] {
+    if (profileSubassets) {
+      return profileSubassets
+        .filter((c) => c.parentObjectTypeId === typeId)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((c) => c.childObjectType);
+    }
+    const parentType = objectTypes?.find((t) => t.id === typeId);
+    return parentType?.childObjectTypes ?? [];
+  }
 
   function handleFloorSelected(floorId: string) {
     setScanState((prev) => ({ ...prev, floorId }));
@@ -165,8 +192,7 @@ export default function ScanFlow() {
 
   function runConfirm(typeId: string, onScanPromptAnswers?: Record<string, unknown>) {
     if (!scanState.scanRecordId) return;
-    const parentType = objectTypes?.find((t) => t.id === typeId);
-    const children = parentType?.childObjectTypes ?? [];
+    const children = getChildrenForType(typeId);
 
     confirmScan.mutate(
       {

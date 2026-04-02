@@ -46,6 +46,10 @@ model ObjectType {
   buildingTypes         ObjectTypeBuildingType[]
   scanRecords           ScanRecord[]
   serviceCodeMappings   ServiceCodeMapping[]
+  profileMappingRules   ProfileMappingRule[]
+  profileSubassetParent ProfileSubassetConfig[]   @relation("SubassetParent")
+  profileSubassetChild  ProfileSubassetConfig[]   @relation("SubassetChild")
+  profileSubcontractorLinks ProfileSubcontractorObjectType[]
   draftAssetsAsSuggestion DraftAsset[]            @relation("DraftAssetSuggestedType")
 
   @@unique([nameNl, clientName])
@@ -72,6 +76,7 @@ model InventorySession {
   postalCode         String            @map("postal_code")
   city               String
   buildingTypeId     String            @map("building_type_id")
+  mappingProfileId   String?           @map("mapping_profile_id")
   status             String            @default("active")
   createdAt          DateTime          @default(now()) @map("created_at")
   completedAt        DateTime?         @map("completed_at")
@@ -79,6 +84,7 @@ model InventorySession {
   mappingVersion     Int               @default(1) @map("mapping_version")
   inspector          Inspector         @relation(fields: [inspectorId], references: [id])
   buildingType       BuildingType      @relation(fields: [buildingTypeId], references: [id])
+  mappingProfile     MappingProfile?   @relation(fields: [mappingProfileId], references: [id])
   locations          Location[]
   scanRecords        ScanRecord[]
   priorReportFiles   PriorReportFile[]
@@ -208,6 +214,78 @@ model OdooProduct {
   active   Boolean @default(true)
 
   @@map("odoo_products")
+}
+
+model MappingProfile {
+  id               String                  @id @default(cuid())
+  name             String                  @unique
+  country          String                  @default("BE")
+  hasRegionLogic   Boolean                 @default(false) @map("has_region_logic")
+  odooExportEnabled Boolean                @default(true)  @map("odoo_export_enabled")
+  active           Boolean                 @default(true)
+  createdAt        DateTime                @default(now()) @map("created_at")
+  subcontractors   ProfileSubcontractor[]
+  mappingRules     ProfileMappingRule[]
+  subassetConfigs  ProfileSubassetConfig[]
+  sessions         InventorySession[]
+
+  @@map("mapping_profiles")
+}
+
+model ProfileSubcontractor {
+  id               String                           @id @default(cuid())
+  profileId        String                           @map("profile_id")
+  name             String
+  exportLabel      String                           @map("export_label")
+  active           Boolean                          @default(true)
+  profile          MappingProfile                   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  objectTypes      ProfileSubcontractorObjectType[]
+
+  @@unique([profileId, name])
+  @@map("profile_subcontractors")
+}
+
+model ProfileSubcontractorObjectType {
+  subcontractorId String              @map("subcontractor_id")
+  objectTypeId    String              @map("object_type_id")
+  subcontractor   ProfileSubcontractor @relation(fields: [subcontractorId], references: [id], onDelete: Cascade)
+  objectType      ObjectType          @relation(fields: [objectTypeId], references: [id], onDelete: Cascade)
+
+  @@id([subcontractorId, objectTypeId])
+  @@map("profile_subcontractor_object_types")
+}
+
+model ProfileMappingRule {
+  id                    String         @id @default(cuid())
+  profileId             String         @map("profile_id")
+  objectTypeId          String         @map("object_type_id")
+  regime                String?
+  region                String?
+  minQuantity           Int?           @map("min_quantity")
+  maxQuantity           Int?           @map("max_quantity")
+  odooProductCode       String         @map("odoo_product_code")
+  startPriceProductCode String?        @map("start_price_product_code")
+  labelNl               String?        @map("label_nl")
+  priority              Int            @default(0)
+  active                Boolean        @default(true)
+  profile               MappingProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  objectType            ObjectType     @relation(fields: [objectTypeId], references: [id], onDelete: Cascade)
+
+  @@map("profile_mapping_rules")
+}
+
+model ProfileSubassetConfig {
+  id               String         @id @default(cuid())
+  profileId        String         @map("profile_id")
+  parentObjectTypeId String       @map("parent_object_type_id")
+  childObjectTypeId  String       @map("child_object_type_id")
+  sortOrder        Int            @default(0) @map("sort_order")
+  profile          MappingProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  parentObjectType ObjectType     @relation("SubassetParent", fields: [parentObjectTypeId], references: [id], onDelete: Cascade)
+  childObjectType  ObjectType     @relation("SubassetChild", fields: [childObjectTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, parentObjectTypeId, childObjectTypeId])
+  @@map("profile_subasset_configs")
 }
 
 model ScanJob {

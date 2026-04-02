@@ -19,11 +19,12 @@ interface CreateSessionBody {
   postalCode?: string;
   city?: string;
   buildingTypeId?: string;
+  mappingProfileId?: string;
 }
 
 sessionsRouter.post('/', async (req, res, next) => {
   try {
-    const { clientName, street, number, bus, postalCode, city, buildingTypeId } = req.body as CreateSessionBody;
+    const { clientName, street, number, bus, postalCode, city, buildingTypeId, mappingProfileId } = req.body as CreateSessionBody;
 
     if (!clientName?.trim() || !street?.trim() || !number?.trim() || !postalCode?.trim() || !city?.trim() || !buildingTypeId) {
       res.status(400).json({
@@ -42,8 +43,9 @@ sessionsRouter.post('/', async (req, res, next) => {
         postalCode: postalCode.trim(),
         city: city.trim(),
         buildingTypeId,
+        ...(mappingProfileId ? { mappingProfileId } : {}),
       },
-      include: { buildingType: true },
+      include: { buildingType: true, mappingProfile: { select: { id: true, name: true, country: true } } },
     });
 
     res.status(201).json({ data: session });
@@ -58,6 +60,7 @@ sessionsRouter.get('/', async (req, res, next) => {
       where: { inspectorId: req.inspector!.inspectorId },
       include: {
         buildingType: { select: { id: true, nameNl: true } },
+        mappingProfile: { select: { id: true, name: true, country: true } },
         _count: { select: { scanRecords: true, draftAssets: true, priorReportFiles: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -75,6 +78,7 @@ sessionsRouter.get('/:id', async (req, res, next) => {
       where: { id: req.params.id },
       include: {
         buildingType: { select: { id: true, nameNl: true } },
+        mappingProfile: { select: { id: true, name: true, country: true } },
         inspector: { select: { id: true, name: true } },
         locations: {
           orderBy: { sortOrder: 'asc' },

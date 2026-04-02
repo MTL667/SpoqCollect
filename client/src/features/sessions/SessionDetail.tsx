@@ -65,6 +65,11 @@ export default function SessionDetail() {
           {session.buildingType.nameNl} &middot; {session.inspector.name} &middot;{' '}
           {new Date(session.createdAt).toLocaleString('nl-BE')} &middot;{' '}
           {totalScans} objecten
+          {session.mappingProfile && (
+            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+              {session.mappingProfile.name} ({session.mappingProfile.country})
+            </span>
+          )}
         </div>
         <div className="mt-3 flex gap-2">
           {isActive && (

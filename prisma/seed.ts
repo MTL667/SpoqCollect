@@ -617,6 +617,110 @@ async function main() {
   }
   console.log(`  ${mapCount} service code mappings created`);
 
+  // ────────────────────────────────────────────────────────────────
+  // Mapping Profile: België (BE)
+  // ────────────────────────────────────────────────────────────────
+  console.log('Seeding mapping profile "België"...');
+  const beProfile = await prisma.mappingProfile.upsert({
+    where: { name: 'België' },
+    update: { country: 'BE', hasRegionLogic: true, odooExportEnabled: true },
+    create: { name: 'België', country: 'BE', hasRegionLogic: true, odooExportEnabled: true },
+  });
+
+  // Subcontractors
+  const subcontractorDefs: { name: string; exportLabel: string; objectTypeNames: string[] }[] = [
+    {
+      name: 'Aceg',
+      exportLabel: 'Aceg Odoo',
+      objectTypeNames: objectTypes
+        .filter((ot) => !ot.exportParty || ot.exportParty === 'aceg')
+        .filter((ot) => !ot.parentObjectTypeNl)
+        .map((ot) => ot.nameNl),
+    },
+    {
+      name: 'Simafire',
+      exportLabel: 'Simafire Odoo',
+      objectTypeNames: objectTypes.filter((ot) => ot.exportParty === 'simafire').map((ot) => ot.nameNl),
+    },
+    {
+      name: 'Firesecure',
+      exportLabel: 'Firesecure Odoo',
+      objectTypeNames: objectTypes.filter((ot) => ot.exportParty === 'firesecure').map((ot) => ot.nameNl),
+    },
+  ];
+
+  for (const sc of subcontractorDefs) {
+    const sub = await prisma.profileSubcontractor.upsert({
+      where: { profileId_name: { profileId: beProfile.id, name: sc.name } },
+      update: { exportLabel: sc.exportLabel },
+      create: { profileId: beProfile.id, name: sc.name, exportLabel: sc.exportLabel },
+    });
+    // Link object types
+    for (const otName of sc.objectTypeNames) {
+      const otId = otMap.get(otName);
+      if (!otId) continue;
+      await prisma.profileSubcontractorObjectType.upsert({
+        where: { subcontractorId_objectTypeId: { subcontractorId: sub.id, objectTypeId: otId } },
+        update: {},
+        create: { subcontractorId: sub.id, objectTypeId: otId },
+      });
+    }
+  }
+  console.log('  3 subcontractors linked');
+
+  // Profile Mapping Rules (mirror of ServiceCodeMappings)
+  await prisma.profileMappingRule.deleteMany({ where: { profileId: beProfile.id } });
+  let profileRuleCount = 0;
+  for (const m of serviceCodeMappings) {
+    const otId = otMap.get(m.objectTypeNl);
+    if (!otId) continue;
+    await prisma.profileMappingRule.create({
+      data: {
+        profileId: beProfile.id,
+        objectTypeId: otId,
+        regime: m.regime,
+        region: m.region,
+        minQuantity: m.minQuantity,
+        maxQuantity: m.maxQuantity,
+        odooProductCode: m.odooProductCode,
+        startPriceProductCode: m.startPriceProductCode,
+        labelNl: m.labelNl,
+        priority: m.priority,
+      },
+    });
+    profileRuleCount++;
+  }
+  console.log(`  ${profileRuleCount} profile mapping rules created`);
+
+  // Subasset configs
+  const subassetDefs = [
+    { parent: 'Branddetectie goede werking', child: 'Rookmelder', sort: 0 },
+    { parent: 'Branddetectie goede werking', child: 'Drukknop', sort: 1 },
+    { parent: 'Branddetectie goede werking', child: 'Sirene', sort: 2 },
+  ];
+  for (const sa of subassetDefs) {
+    const parentId = otMap.get(sa.parent);
+    const childId = otMap.get(sa.child);
+    if (!parentId || !childId) continue;
+    await prisma.profileSubassetConfig.upsert({
+      where: {
+        profileId_parentObjectTypeId_childObjectTypeId: {
+          profileId: beProfile.id,
+          parentObjectTypeId: parentId,
+          childObjectTypeId: childId,
+        },
+      },
+      update: { sortOrder: sa.sort },
+      create: {
+        profileId: beProfile.id,
+        parentObjectTypeId: parentId,
+        childObjectTypeId: childId,
+        sortOrder: sa.sort,
+      },
+    });
+  }
+  console.log('  3 subasset configs created');
+
   console.log('Seeding test inspector...');
   const passwordHash = await hash('test1234', 10);
   await prisma.inspector.upsert({
