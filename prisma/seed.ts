@@ -18,6 +18,7 @@ interface ObjectTypeSeed {
   heliOmCategory: string;
   applicableBuildings: string[];
   exportParty?: string;
+  parentObjectTypeNl?: string;
 }
 
 interface OdooProductSeed {
@@ -86,6 +87,11 @@ const objectTypes: ObjectTypeSeed[] = [
   { nameNl: 'Rookkoepels goede werking', nameFr: 'Bon fonctionnement des coupoles de désenfumage', heliOmCategory: 'Rookkoepel', applicableBuildings: ALL_BUILDINGS },
   { nameNl: 'Dampkapblusinstallatie', nameFr: "Système d'extinction pour hotte aspirante", heliOmCategory: 'Dampkapblusinstallatie', applicableBuildings: ALL_BUILDINGS, exportParty: 'simafire' },
   { nameNl: 'Brandwerende deur', nameFr: 'Porte coupe-feu', heliOmCategory: 'Branddeur – benor', applicableBuildings: ALL_BUILDINGS, exportParty: 'firesecure' },
+
+  // === Subassets: Branddetectie componenten ===
+  { nameNl: 'Rookmelder', nameFr: 'Détecteur de fumée', heliOmCategory: 'BD – rookmelder', applicableBuildings: ALL_BUILDINGS, parentObjectTypeNl: 'Branddetectie goede werking' },
+  { nameNl: 'Drukknop', nameFr: 'Bouton-poussoir', heliOmCategory: 'BD – drukknop', applicableBuildings: ALL_BUILDINGS, parentObjectTypeNl: 'Branddetectie goede werking' },
+  { nameNl: 'Sirene', nameFr: 'Sirène', heliOmCategory: 'BD – sirene', applicableBuildings: ALL_BUILDINGS, parentObjectTypeNl: 'Branddetectie goede werking' },
 
   // === Hef en Hijs (original) ===
   { nameNl: 'Personenliften', nameFr: 'Ascenseurs pour personnes', heliOmCategory: 'PL', applicableBuildings: ALL_BUILDINGS },
@@ -480,6 +486,17 @@ const serviceCodeMappings: MappingSeed[] = [
   // === Firesecure mappings ===
   { objectTypeNl: 'Brandwerende deur', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'FS.BD.01', startPriceProductCode: null, labelNl: 'Controle brand- en nooddeuren', priority: P0 },
 
+  // === Subassets: Branddetectie componenten (stukprijs per component, geen startprijs) ===
+  { objectTypeNl: 'Rookmelder', regime: 'werking', region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.BD1', startPriceProductCode: null, labelNl: 'Rookmelder goede werking (per stuk)', priority: P0 },
+  { objectTypeNl: 'Rookmelder', regime: 'norm', region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.BD2.02', startPriceProductCode: null, labelNl: 'Rookmelder norm (per stuk)', priority: P0 },
+  { objectTypeNl: 'Rookmelder', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.BD1', startPriceProductCode: null, labelNl: 'Rookmelder goede werking (per stuk) (default)', priority: P0 },
+  { objectTypeNl: 'Drukknop', regime: 'werking', region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.BD1', startPriceProductCode: null, labelNl: 'Drukknop goede werking (per stuk)', priority: P0 },
+  { objectTypeNl: 'Drukknop', regime: 'norm', region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.BD2.02', startPriceProductCode: null, labelNl: 'Drukknop norm (per stuk)', priority: P0 },
+  { objectTypeNl: 'Drukknop', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.BD1', startPriceProductCode: null, labelNl: 'Drukknop goede werking (per stuk) (default)', priority: P0 },
+  { objectTypeNl: 'Sirene', regime: 'werking', region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.BD1', startPriceProductCode: null, labelNl: 'Sirene goede werking (per stuk)', priority: P0 },
+  { objectTypeNl: 'Sirene', regime: 'norm', region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.BD2.02', startPriceProductCode: null, labelNl: 'Sirene norm (per stuk)', priority: P0 },
+  { objectTypeNl: 'Sirene', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.BD1', startPriceProductCode: null, labelNl: 'Sirene goede werking (per stuk) (default)', priority: P0 },
+
   // === Region-specific examples: Persluchthouders ===
   { objectTypeNl: 'Persluchthouders', regime: null, region: 'wallonie', minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.MP.09', startPriceProductCode: null, labelNl: 'Periodieke inspectie persluchttank (Wallonië)', priority: 10 },
   { objectTypeNl: 'Persluchthouders', regime: null, region: 'brussel', minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.MP.03', startPriceProductCode: null, labelNl: 'Periodiek onderzoek persluchthouder BHG', priority: 10 },
@@ -502,6 +519,8 @@ async function main() {
   console.log(`  ${btMap.size} building types upserted`);
 
   console.log('Seeding object types...');
+  const otMap = new Map<string, string>();
+  // First pass: create all types (without parent links)
   for (const ot of objectTypes) {
     const existing = await prisma.objectType.findFirst({ where: { nameNl: ot.nameNl, clientName: null } });
     const record = existing
@@ -517,6 +536,7 @@ async function main() {
             ...(ot.exportParty ? { exportParty: ot.exportParty } : {}),
           },
         });
+    otMap.set(ot.nameNl, record.id);
 
     for (const btName of ot.applicableBuildings) {
       const btId = btMap.get(btName);
@@ -530,6 +550,19 @@ async function main() {
           },
           update: {},
           create: { objectTypeId: record.id, buildingTypeId: btId },
+        });
+      }
+    }
+  }
+  // Second pass: link parent-child relationships
+  for (const ot of objectTypes) {
+    if (ot.parentObjectTypeNl) {
+      const childId = otMap.get(ot.nameNl);
+      const parentId = otMap.get(ot.parentObjectTypeNl);
+      if (childId && parentId) {
+        await prisma.objectType.update({
+          where: { id: childId },
+          data: { parentObjectTypeId: parentId },
         });
       }
     }

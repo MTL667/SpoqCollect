@@ -21,8 +21,9 @@ objectTypesRouter.get('/', async (req: Request, res: Response, next: NextFunctio
     };
 
     const objectTypes = await prisma.objectType.findMany({
-      where,
+      where: { ...where, parentObjectTypeId: null },
       orderBy: { nameNl: 'asc' },
+      include: { childObjectTypes: { where: { active: true }, orderBy: { nameNl: 'asc' } } },
     });
 
     res.json({ data: objectTypes });

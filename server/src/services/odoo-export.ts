@@ -90,6 +90,13 @@ export async function deriveOdooLines(sessionId: string): Promise<OdooLine[]> {
     where: { active: true, version: session.mappingVersion },
   });
 
+  const typesWithChildren = new Set(
+    (await prisma.objectType.findMany({
+      where: { childObjectTypes: { some: { active: true } } },
+      select: { id: true },
+    })).map((t) => t.id),
+  );
+
   const quantityByType = new Map<string, number>();
   for (const scan of session.scanRecords) {
     const tid = scan.confirmedTypeId!;
@@ -117,6 +124,7 @@ export async function deriveOdooLines(sessionId: string): Promise<OdooLine[]> {
     const startCode = picked?.startPriceProductCode ?? null;
     const regime = picked?.regime ?? null;
     const unmapped = !picked;
+    const isParentWithChildren = typesWithChildren.has(typeId);
 
     const resolvedRegime = regime ?? globalRegime;
     const startPriceKey = `${typeId}::${resolvedRegime ?? ''}`;
@@ -136,17 +144,19 @@ export async function deriveOdooLines(sessionId: string): Promise<OdooLine[]> {
       });
     }
 
-    lines.push({
-      scanId: scan.id,
-      objectTypeNl: typeNl,
-      quantity: scan.quantity,
-      odooProductCode: code ?? 'UNMAPPED',
-      regime: resolvedRegime,
-      unmapped,
-      parentScanId: scan.parentScanId,
-      lineType: startCode ? 'stukprijs' : null,
-      exportParty: party,
-    });
+    if (!isParentWithChildren) {
+      lines.push({
+        scanId: scan.id,
+        objectTypeNl: typeNl,
+        quantity: scan.quantity,
+        odooProductCode: code ?? 'UNMAPPED',
+        regime: resolvedRegime,
+        unmapped,
+        parentScanId: scan.parentScanId,
+        lineType: startCode ? 'stukprijs' : null,
+        exportParty: party,
+      });
+    }
   }
 
   return lines;

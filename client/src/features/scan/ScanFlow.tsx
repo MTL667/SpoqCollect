@@ -3,14 +3,28 @@ import { useParams, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import CameraView from './CameraView';
 import ClassificationResult from './ClassificationResult';
-import { useUploadScan, useConfirmScan, useCreateCustomObjectType } from './use-scan';
+import { useUploadScan, useConfirmScan, useCreateCustomObjectType, useCreateSubassets } from './use-scan';
 import { useSession, useCreateLocation, useCreateFloor, usePatchSessionPrompts } from '../sessions/use-sessions';
 import { apiClient } from '../../lib/api-client';
 import type { LocationItem } from '../sessions/use-sessions';
 import { usePromptCatalog, type PromptFieldDef } from '../prompts/use-prompt-catalog';
 import { DynamicPromptFields } from '../prompts/DynamicPromptFields';
 
-type FlowStep = 'pick-floor' | 'camera' | 'uploading' | 'classifying' | 'confirm';
+type FlowStep = 'pick-floor' | 'camera' | 'uploading' | 'classifying' | 'confirm' | 'subassets';
+
+interface ChildObjectType {
+  id: string;
+  nameNl: string;
+}
+
+interface ObjectTypeWithChildren {
+  id: string;
+  nameNl: string;
+  nameFr: string;
+  heliOmCategory: string;
+  active: boolean;
+  childObjectTypes?: ChildObjectType[];
+}
 
 interface ScanState {
   floorId: string | null;
@@ -29,6 +43,7 @@ export default function ScanFlow() {
   const uploadScan = useUploadScan(sessionId!);
   const confirmScan = useConfirmScan();
   const createCustomType = useCreateCustomObjectType();
+  const createSubassets = useCreateSubassets(sessionId!);
   const patchPrompts = usePatchSessionPrompts(sessionId!);
   const {
     data: catalog,
@@ -51,6 +66,8 @@ export default function ScanFlow() {
   const [sessionStartValues, setSessionStartValues] = useState<Record<string, string>>({});
   const [pendingOnScan, setPendingOnScan] = useState<{ typeId: string; fields: PromptFieldDef[] } | null>(null);
   const [onScanValues, setOnScanValues] = useState<Record<string, string>>({});
+  const [pendingSubassets, setPendingSubassets] = useState<{ parentScanId: string; children: ChildObjectType[] } | null>(null);
+  const [subassetQuantities, setSubassetQuantities] = useState<Record<string, number>>({});
 
   const sessionPrompt = catalog?.sessionPromptData as { startCompleted?: boolean } | undefined;
   const needSessionStart =
@@ -62,7 +79,7 @@ export default function ScanFlow() {
   const { data: objectTypes } = useQuery({
     queryKey: ['object-types', clientName],
     queryFn: () =>
-      apiClient<Array<{ id: string; nameNl: string; nameFr: string; heliOmCategory: string; active: boolean }>>(
+      apiClient<ObjectTypeWithChildren[]>(
         `/api/object-types${clientName ? `?clientName=${encodeURIComponent(clientName)}` : ''}`,
       ),
     staleTime: Infinity,
@@ -129,8 +146,28 @@ export default function ScanFlow() {
     setStep('confirm');
   }
 
+  function resetAfterConfirm() {
+    setScanState((prev) => ({
+      ...prev,
+      photoBlob: null,
+      scanRecordId: null,
+      aiTypeId: null,
+      aiConfidence: null,
+      candidates: [],
+      quantity: 1,
+    }));
+    setPendingOnScan(null);
+    setOnScanValues({});
+    setPendingSubassets(null);
+    setSubassetQuantities({});
+    setStep('camera');
+  }
+
   function runConfirm(typeId: string, onScanPromptAnswers?: Record<string, unknown>) {
     if (!scanState.scanRecordId) return;
+    const parentType = objectTypes?.find((t) => t.id === typeId);
+    const children = parentType?.childObjectTypes ?? [];
+
     confirmScan.mutate(
       {
         scanId: scanState.scanRecordId,
@@ -140,18 +177,18 @@ export default function ScanFlow() {
       },
       {
         onSuccess: () => {
-          setScanState((prev) => ({
-            ...prev,
-            photoBlob: null,
-            scanRecordId: null,
-            aiTypeId: null,
-            aiConfidence: null,
-            candidates: [],
-            quantity: 1,
-          }));
           setPendingOnScan(null);
           setOnScanValues({});
-          setStep('camera');
+
+          if (children.length > 0) {
+            const init: Record<string, number> = {};
+            for (const c of children) init[c.id] = 0;
+            setSubassetQuantities(init);
+            setPendingSubassets({ parentScanId: scanState.scanRecordId!, children });
+            setStep('subassets');
+          } else {
+            resetAfterConfirm();
+          }
         },
       },
     );
@@ -274,6 +311,89 @@ export default function ScanFlow() {
               className="flex-1 py-2 bg-green-600 text-white font-medium rounded-md disabled:opacity-50"
             >
               Opslaan
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'subassets' && pendingSubassets) {
+    const hasAny = Object.values(subassetQuantities).some((q) => q > 0);
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-4">
+          <h2 className="text-lg font-bold text-gray-900 mb-2">Subassets invoeren</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Hoeveel componenten heeft deze installatie?
+          </p>
+          <div className="space-y-3">
+            {pendingSubassets.children.map((child) => (
+              <div key={child.id} className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-800">{child.nameNl}</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() =>
+                      setSubassetQuantities((p) => ({
+                        ...p,
+                        [child.id]: Math.max(0, (p[child.id] ?? 0) - 1),
+                      }))
+                    }
+                    disabled={(subassetQuantities[child.id] ?? 0) <= 0}
+                    className="w-8 h-8 rounded-full bg-gray-100 text-lg font-bold text-gray-700 hover:bg-gray-200 disabled:opacity-30"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    min={0}
+                    value={subassetQuantities[child.id] ?? 0}
+                    onChange={(e) =>
+                      setSubassetQuantities((p) => ({
+                        ...p,
+                        [child.id]: Math.max(0, parseInt(e.target.value, 10) || 0),
+                      }))
+                    }
+                    className="w-16 text-center text-lg font-bold text-gray-900 border border-gray-300 rounded-md"
+                  />
+                  <button
+                    onClick={() =>
+                      setSubassetQuantities((p) => ({
+                        ...p,
+                        [child.id]: (p[child.id] ?? 0) + 1,
+                      }))
+                    }
+                    className="w-8 h-8 rounded-full bg-blue-100 text-lg font-bold text-blue-700 hover:bg-blue-200"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2 mt-6">
+            <button
+              type="button"
+              onClick={resetAfterConfirm}
+              className="flex-1 py-2 border border-gray-300 rounded-md text-gray-700"
+            >
+              Overslaan
+            </button>
+            <button
+              type="button"
+              disabled={!hasAny || createSubassets.isPending}
+              onClick={() => {
+                const subs = Object.entries(subassetQuantities)
+                  .filter(([, qty]) => qty > 0)
+                  .map(([objectTypeId, quantity]) => ({ objectTypeId, quantity }));
+                createSubassets.mutate(
+                  { parentScanId: pendingSubassets.parentScanId, subassets: subs },
+                  { onSuccess: resetAfterConfirm },
+                );
+              }}
+              className="flex-1 py-2 bg-green-600 text-white font-medium rounded-md disabled:opacity-50"
+            >
+              {createSubassets.isPending ? 'Opslaan...' : 'Opslaan'}
             </button>
           </div>
         </div>

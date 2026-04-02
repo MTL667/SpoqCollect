@@ -473,9 +473,11 @@ function FloorSection({
           {floor.scanRecords.length === 0 && !showManualAdd && (
             <div className="px-4 py-2 text-xs text-gray-400 italic">Geen scans</div>
           )}
-          {floor.scanRecords.map((record) => (
+          {floor.scanRecords.filter((r) => !r.parentScanId).map((record) => {
+            const childScans = floor.scanRecords.filter((r) => r.parentScanId === record.id);
+            return (
+            <div key={record.id}>
             <div
-              key={record.id}
               className="flex items-center gap-3 px-4 py-2 border-t border-gray-50"
             >
               <PhotoThumbnail photoPath={record.photoPath} size={40} />
@@ -485,6 +487,11 @@ function FloorSection({
                 </p>
                 <p className="text-xs text-gray-500">
                   {new Date(record.createdAt).toLocaleTimeString('nl-BE')}
+                  {childScans.length > 0 && (
+                    <span className="ml-2 text-blue-600">
+                      {childScans.length} subasset{childScans.length > 1 ? 's' : ''}
+                    </span>
+                  )}
                 </p>
               </div>
               {isActive && record.status === 'confirmed' ? (
@@ -567,7 +574,32 @@ function FloorSection({
                 </div>
               )}
             </div>
-          ))}
+            {childScans.length > 0 && (
+              <div className="ml-12 border-l-2 border-blue-100">
+                {childScans.map((child) => (
+                  <div
+                    key={child.id}
+                    className="flex items-center gap-3 px-4 py-1.5 text-sm"
+                  >
+                    <span className="text-blue-400 text-xs">↳</span>
+                    <span className="text-gray-700 flex-1 truncate">{child.confirmedType?.nameNl ?? '?'}</span>
+                    <span className="text-xs font-medium text-gray-500 tabular-nums">×{child.quantity}</span>
+                    {isActive && (
+                      <button
+                        onClick={() => setDeleteRecordId(child.id)}
+                        className="w-6 h-6 rounded-full bg-red-50 text-xs text-red-500 hover:bg-red-100"
+                        title="Verwijderen"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            </div>
+            );
+          })}
 
           {isActive && showManualAdd && manualStep === 'pick-type' && (
             <div className="px-4 py-3 border-t border-gray-100 space-y-2">

@@ -178,6 +178,36 @@ export function useConfirmScan() {
   });
 }
 
+export function useCreateSubassets(sessionId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ parentScanId, subassets }: {
+      parentScanId: string;
+      subassets: Array<{ objectTypeId: string; quantity: number }>;
+    }) => {
+      const token = localStorage.getItem('inventarispoq_auth');
+      const parsed = token ? JSON.parse(token) : null;
+      const res = await fetch(`/api/scans/${parentScanId}/subassets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(parsed?.token ? { Authorization: `Bearer ${parsed.token}` } : {}),
+        },
+        body: JSON.stringify({ subassets }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message ?? 'Subassets aanmaken mislukt');
+      }
+      const json = await res.json();
+      return json.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sessions', sessionId] });
+    },
+  });
+}
+
 export function useCreateCustomObjectType() {
   const qc = useQueryClient();
   return useMutation({

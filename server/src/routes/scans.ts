@@ -227,6 +227,58 @@ scansRouter.post('/:sessionId/scans/manual', upload.single('photo'), async (req:
   }
 });
 
+/** Batch-create sub-asset scans linked to a parent scan. */
+scansRouter.post('/:id/subassets', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const parentScanId = req.params.id as string;
+    const { subassets } = req.body as {
+      subassets: Array<{ objectTypeId: string; quantity: number }>;
+    };
+
+    if (!subassets || !Array.isArray(subassets)) {
+      res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'subassets array is vereist' } });
+      return;
+    }
+
+    const parentScan = await prisma.scanRecord.findUnique({
+      where: { id: parentScanId },
+      include: { session: true },
+    });
+
+    if (!parentScan) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Parent scan not found' } });
+      return;
+    }
+    if (parentScan.inspectorId !== req.inspector!.inspectorId) {
+      res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not your scan' } });
+      return;
+    }
+
+    const created = [];
+    for (const sub of subassets) {
+      if (!sub.objectTypeId || sub.quantity < 1) continue;
+      const record = await prisma.scanRecord.create({
+        data: {
+          sessionId: parentScan.sessionId,
+          floorId: parentScan.floorId,
+          inspectorId: parentScan.inspectorId,
+          confirmedTypeId: sub.objectTypeId,
+          quantity: sub.quantity,
+          status: 'confirmed',
+          confirmedAt: new Date(),
+          parentScanId,
+        },
+        include: { confirmedType: true },
+      });
+      created.push(record);
+    }
+
+    res.status(201).json({ data: created });
+  } catch (error) {
+    next(error);
+  }
+});
+
 scansRouter.patch('/:id/confirm', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { confirmedTypeId, quantity, onScanPromptAnswers } = req.body as {
