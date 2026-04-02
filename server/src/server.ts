@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { healthRouter } from './routes/health.js';
@@ -11,7 +12,6 @@ import { scansRouter } from './routes/scans.js';
 import { exportsRouter } from './routes/exports.js';
 import { locationsRouter } from './routes/locations.js';
 import { priorReportsRouter } from './routes/prior-reports.js';
-import { mappingRulesRouter } from './routes/mapping-rules.js';
 import { mappingProfilesRouter } from './routes/mapping-profiles.js';
 import { authMiddleware, requireAdmin } from './middleware/auth.js';
 import { errorHandler } from './middleware/error-handler.js';
@@ -24,7 +24,26 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMITED', message: 'Te veel verzoeken, probeer het later opnieuw' } },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMITED', message: 'Te veel login pogingen, probeer het later opnieuw' } },
+});
+
+app.use('/api', apiLimiter);
+app.use('/api/auth', authLimiter);
 app.use(authMiddleware);
 
 app.use('/api/health', healthRouter);
@@ -37,7 +56,6 @@ app.use('/api/sessions', scansRouter);
 app.use('/api/scans', scansRouter);
 app.use('/api/sessions', exportsRouter);
 app.use('/api/sessions', priorReportsRouter);
-app.use('/api/admin/mapping-rules', requireAdmin, mappingRulesRouter);
 app.use('/api/admin/mapping-profiles', requireAdmin, mappingProfilesRouter);
 
 app.use('/api', ((_req, res) => {

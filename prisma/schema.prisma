@@ -79,6 +79,7 @@ model InventorySession {
   mappingProfileId   String?           @map("mapping_profile_id")
   status             String            @default("active")
   createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
   completedAt        DateTime?         @map("completed_at")
   sessionPromptData  Json?             @map("session_prompt_data")
   mappingVersion     Int               @default(1) @map("mapping_version")

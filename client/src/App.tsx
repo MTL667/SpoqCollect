@@ -5,9 +5,11 @@ import SessionList from './features/sessions/SessionList';
 import CreateSession from './features/sessions/CreateSession';
 import SessionDetail from './features/sessions/SessionDetail';
 import ScanFlow from './features/scan/ScanFlow';
-import MappingRulesAdmin from './features/admin/MappingRulesAdmin';
 import MappingProfilesAdmin from './features/admin/MappingProfilesAdmin';
 import OfflineIndicator from './shared/components/OfflineIndicator';
+import { startBackgroundSync } from './shared/lib/offline-sync';
+
+startBackgroundSync();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -50,10 +52,6 @@ export default function App() {
         <Route
           path="/sessions/:id/scan"
           element={<ProtectedRoute><ScanFlow /></ProtectedRoute>}
-        />
-        <Route
-          path="/admin/mappings"
-          element={<ProtectedRoute><MappingRulesAdmin /></ProtectedRoute>}
         />
         <Route
           path="/admin/profiles"

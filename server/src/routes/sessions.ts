@@ -33,6 +33,16 @@ sessionsRouter.post('/', async (req, res, next) => {
       return;
     }
 
+    let resolvedProfileId = mappingProfileId ?? null;
+    if (!resolvedProfileId) {
+      const defaultProfile = await prisma.mappingProfile.findFirst({
+        where: { active: true },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      });
+      resolvedProfileId = defaultProfile?.id ?? null;
+    }
+
     const session = await prisma.inventorySession.create({
       data: {
         inspectorId: req.inspector!.inspectorId,
@@ -43,7 +53,7 @@ sessionsRouter.post('/', async (req, res, next) => {
         postalCode: postalCode.trim(),
         city: city.trim(),
         buildingTypeId,
-        ...(mappingProfileId ? { mappingProfileId } : {}),
+        ...(resolvedProfileId ? { mappingProfileId: resolvedProfileId } : {}),
       },
       include: { buildingType: true, mappingProfile: { select: { id: true, name: true, country: true } } },
     });
@@ -63,7 +73,7 @@ sessionsRouter.get('/', async (req, res, next) => {
         mappingProfile: { select: { id: true, name: true, country: true } },
         _count: { select: { scanRecords: true, draftAssets: true, priorReportFiles: true } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { updatedAt: 'desc' },
     });
 
     res.json({ data: sessions });
@@ -325,11 +335,27 @@ sessionsRouter.patch('/:id/complete', async (req, res, next) => {
       return;
     }
 
+    let frozenVersion = session.mappingVersion;
+    if (session.mappingProfileId) {
+      const maxRule = await prisma.profileMappingRule.aggregate({
+        where: { profileId: session.mappingProfileId, active: true },
+        _count: true,
+      });
+      frozenVersion = maxRule._count ?? 1;
+    } else {
+      const maxVer = await prisma.serviceCodeMapping.aggregate({
+        where: { active: true },
+        _max: { version: true },
+      });
+      frozenVersion = maxVer._max.version ?? 1;
+    }
+
     const updated = await prisma.inventorySession.update({
       where: { id: req.params.id },
       data: {
         status: 'completed',
         completedAt: new Date(),
+        mappingVersion: frozenVersion,
         ...(body.end || body.lightning || body.atex ? { sessionPromptData: promptData as object } : {}),
       },
       include: { buildingType: true },

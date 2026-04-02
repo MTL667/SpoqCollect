@@ -9,6 +9,8 @@ import { apiClient } from '../../lib/api-client';
 import type { LocationItem } from '../sessions/use-sessions';
 import { usePromptCatalog, type PromptFieldDef } from '../prompts/use-prompt-catalog';
 import { DynamicPromptFields } from '../prompts/DynamicPromptFields';
+import { useOnlineStatus } from '../../shared/hooks/use-online-status';
+import { saveOfflineScan } from '../../shared/lib/indexed-db';
 
 type FlowStep = 'pick-floor' | 'camera' | 'uploading' | 'classifying' | 'confirm' | 'subassets' | 'label-photo';
 
@@ -39,6 +41,7 @@ interface ScanState {
 export default function ScanFlow() {
   const { id: sessionId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const isOnline = useOnlineStatus();
   const { data: session, refetch: refetchSession } = useSession(sessionId!);
   const uploadScan = useUploadScan(sessionId!);
   const confirmScan = useConfirmScan();
@@ -121,6 +124,19 @@ export default function ScanFlow() {
 
   async function handleCapture(blob: Blob) {
     setScanState((prev) => ({ ...prev, photoBlob: blob }));
+
+    if (!navigator.onLine) {
+      setScanState((prev) => ({
+        ...prev,
+        scanRecordId: null,
+        aiTypeId: null,
+        aiConfidence: null,
+        candidates: [],
+      }));
+      setStep('confirm');
+      return;
+    }
+
     setStep('uploading');
 
     try {
@@ -205,9 +221,28 @@ export default function ScanFlow() {
     goToLabelPhoto();
   }
 
-  function runConfirm(typeId: string, onScanPromptAnswers?: Record<string, unknown>) {
-    if (!scanState.scanRecordId) return;
+  async function runConfirm(typeId: string, onScanPromptAnswers?: Record<string, unknown>) {
     const children = getChildrenForType(typeId);
+
+    if (!scanState.scanRecordId) {
+      const typeName = objectTypes?.find((t) => t.id === typeId)?.nameNl ?? '';
+      await saveOfflineScan({
+        id: `offline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        sessionId: sessionId!,
+        floorId: scanState.floorId!,
+        confirmedTypeId: typeId,
+        confirmedTypeName: typeName,
+        quantity: scanState.quantity,
+        photoBlob: scanState.photoBlob,
+        createdAt: new Date().toISOString(),
+        synced: false,
+      });
+
+      setPendingOnScan(null);
+      setOnScanValues({});
+      resetForNextScan();
+      return;
+    }
 
     confirmScan.mutate(
       {

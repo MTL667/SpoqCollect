@@ -179,6 +179,29 @@ const objectTypes: ObjectTypeSeed[] = [
   { nameNl: 'Voetbalstadion', nameFr: 'Stade de football', heliOmCategory: 'Stadion', applicableBuildings: ALL_BUILDINGS },
   { nameNl: 'Lastoestel', nameFr: 'Appareil de soudage', heliOmCategory: 'Lastoestel', applicableBuildings: ALL_BUILDINGS },
   { nameNl: 'VCA arbeidsmiddelen', nameFr: 'VCA équipements de travail', heliOmCategory: 'VCA', applicableBuildings: ALL_BUILDINGS },
+
+  // ────────────────────────────────────────────────────────────
+  // Domeinspec uitbreidingen (sectie 3.4–3.10)
+  // ────────────────────────────────────────────────────────────
+  { nameNl: 'Muurhydrant', nameFr: 'Hydrant mural', heliOmCategory: 'BB – Muurhydrant', applicableBuildings: ALL_BUILDINGS, exportParty: 'simafire' },
+  { nameNl: 'Ondergrondse hydrant', nameFr: 'Hydrant souterrain', heliOmCategory: 'BB – Ondergronds', applicableBuildings: ALL_BUILDINGS, exportParty: 'simafire' },
+  { nameNl: 'Bovengrondse hydrant', nameFr: 'Hydrant aérien', heliOmCategory: 'BB – Bovengronds', applicableBuildings: ALL_BUILDINGS, exportParty: 'simafire' },
+  { nameNl: 'Sprinklerinstallatie', nameFr: 'Installation sprinkler', heliOmCategory: 'Sprinkler', applicableBuildings: ALL_BUILDINGS, exportParty: 'simafire' },
+  { nameNl: 'Evacuatieplan', nameFr: "Plan d'évacuation", heliOmCategory: 'Evacuatieplan', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'AED', nameFr: 'DEA', heliOmCategory: 'AED', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Elektriciteitsmeter', nameFr: "Compteur d'électricité", heliOmCategory: 'Elek.meter', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Verdeelbord mobiel', nameFr: 'Tableau de distribution mobile', heliOmCategory: 'Mob. verdeelbord', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Werkkast', nameFr: 'Armoire de chantier', heliOmCategory: 'Werkkast', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Gasteller', nameFr: 'Compteur de gaz', heliOmCategory: 'Gasteller', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Gasdetectie centrale', nameFr: 'Centrale de détection de gaz', heliOmCategory: 'GD – centrale', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Gasdetector', nameFr: 'Détecteur de gaz', heliOmCategory: 'GD – detector', applicableBuildings: ALL_BUILDINGS, parentObjectTypeNl: 'Gasdetectie centrale' },
+  { nameNl: 'Cryogene gastank', nameFr: 'Réservoir de gaz cryogénique', heliOmCategory: 'Cryo tank', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Sferische gastank', nameFr: 'Réservoir de gaz sphérique', heliOmCategory: 'Sfeer tank', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Sectionaalpoort', nameFr: 'Porte sectionnelle', heliOmCategory: 'Sectionaalpoort', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Kartonpers', nameFr: 'Presse à carton', heliOmCategory: 'Kartonpers', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Hijsbanden', nameFr: 'Sangles de levage', heliOmCategory: 'Hijsbanden', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Elektrische schuifdeur', nameFr: 'Porte coulissante électrique', heliOmCategory: 'Elek.schuifdeur', applicableBuildings: ALL_BUILDINGS },
+  { nameNl: 'Autolift', nameFr: 'Ascenseur pour voitures', heliOmCategory: 'Autolift', applicableBuildings: ALL_BUILDINGS },
 ];
 
 // ────────────────────────────────────────────────────────────────

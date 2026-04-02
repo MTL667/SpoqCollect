@@ -40,12 +40,6 @@ export default function SessionList() {
           + Nieuwe sessie
         </button>
         <button
-          onClick={() => navigate('/admin/mappings')}
-          className="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-md hover:bg-gray-300"
-        >
-          Mapping regels
-        </button>
-        <button
           onClick={() => navigate('/admin/profiles')}
           className="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-md hover:bg-gray-300"
         >

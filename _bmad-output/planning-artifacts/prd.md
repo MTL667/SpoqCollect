@@ -366,6 +366,67 @@ SEO, WCAG accessibility, real-time features, push notifications, GPS, accelerome
 - **FR27:** System maintains session-level metadata: inspector, location, building type, start/end time, total object count
 - **FR28:** System retains all photos linked to their respective scan records
 
+### Implemented Features (Post-MVP, 2026-03-27)
+
+The following features have been implemented since the original PRD was written and extend the scope beyond the initial FR1-FR28:
+
+#### Multi-Party Odoo Export
+
+- **FR29:** System derives Odoo export lines (productcodes) from confirmed scans using configurable mapping rules
+- **FR30:** ON_SCAN conditional prompts per object type (e.g. Personenliften: 3/6-maandelijks, Heftruck: hef/behandeling, Rolbrug: gewichtsklasse/spoorbaan/spoorlengte, Bliksemafleiders: aantal daalleidingen, Mindervalidenliften: hefhoogte)
+- **FR31:** SESSION_END prompts for brand/veiligheidsverlichting regime (norm/goede werking), bliksem (niet-huishoudelijk), ATEX zone
+- **FR32:** Multi-party Odoo export: assets automatisch verdeeld over Aceg, Simafire en Firesecure op basis van objecttype
+- **FR33:** Export als ZIP bestand met meerdere CSV-bestanden wanneer meerdere partijen van toepassing zijn
+
+#### Mapping Profiles (Multi-Country)
+
+- **FR34:** Admin kan mapping profielen aanmaken per land (bijv. België, Nederland) met eigen subcontractors, mapping rules en subasset configuraties
+- **FR35:** Sessies worden automatisch gekoppeld aan het standaard mapping profiel bij aanmaak
+- **FR36:** Mapping rules ondersteunen regime, regio (Vlaanderen/Wallonië/Brussel afgeleid uit postcode) en kwantiteitsdrempels met prioriteitsresolutie
+
+#### Keuringsdata & Label Foto AI Extractie
+
+- **FR37:** Inspector kan na bevestiging van een scan een extra foto maken van een keuringslabel
+- **FR38:** Systeem extraheert inspectiedata (laatste keuring, geldig tot, LB/LMB%, keuringsnummer) uit de label foto via AI/OCR (GPT-4o Vision)
+- **FR39:** Inspector kan keuringsdata handmatig invoeren of bijwerken na extractie
+
+#### Prior Reports & Draft Assets
+
+- **FR40:** Inspector kan eerder keuringsverslag (PDF) uploaden bij een sessie
+- **FR41:** Systeem extraheert concept-assets uit het verslag en toont ze als suggesties bij het scannen
+
+#### Custom Object Types
+
+- **FR42:** Inspector kan client-specifieke objecttypes aanmaken die herbruikbaar zijn voor die klant
+- **FR43:** Objecttype-selectielijst toont altijd alle beschikbare types (filtering op gebouwtype is bewust uitgeschakeld)
+
+#### Sessie Beheer
+
+- **FR44:** Inspector kan achteraf het adres, de klantnaam en het mapping profiel van een sessie aanpassen
+- **FR45:** Sessies worden gesorteerd op laatst bijgewerkt (updatedAt) in de lijst
+
+#### Heli OM Export v2
+
+- **FR46:** Heli OM Excel export volgt exact het 29-kolom template (A-AC) inclusief inspectiedata velden
+
+#### Offline Scan Mode
+
+- **FR47:** Inspector kan offline foto's maken en objecttypes handmatig selecteren; scans worden opgeslagen in IndexedDB
+- **FR48:** AI classificatie wordt overgeslagen in offline modus; rode banner toont "Offline modus — AI classificatie niet beschikbaar"
+- **FR49:** Bij herstel van connectiviteit synchroniseert de app automatisch alle pending scans naar de server via background sync
+- **FR50:** Object-types en sessiedata worden gecached via Workbox StaleWhileRevalidate zodat de app navigeerbaar blijft offline
+
+#### Beveiliging
+
+- **FR51:** Admin endpoints (`/api/admin/*`) vereisen een gebruiker met role `admin`
+- **FR52:** Foto-endpoints vereisen authenticatie (JWT via header of query parameter)
+- **FR53:** Rate limiting: 120 verzoeken/minuut globaal, 20 login pogingen per 15 minuten
+
+#### Deployment
+
+- **FR54:** Docker entrypoint gebruikt `prisma migrate deploy` in plaats van `db push` voor veilige productie-migraties
+- **FR55:** Mapping versie wordt bevroren bij sessie voltooiing om retroactieve wijzigingen te voorkomen
+
 ## Non-Functional Requirements
 
 ### Performance

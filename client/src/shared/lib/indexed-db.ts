@@ -1,31 +1,22 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 
-interface PendingScan {
+export interface OfflineScan {
   id: string;
   sessionId: string;
-  photoBlob: Blob;
+  floorId: string;
+  confirmedTypeId: string;
+  confirmedTypeName: string;
+  quantity: number;
+  photoBlob: Blob | null;
   createdAt: string;
   synced: boolean;
 }
 
-interface SyncQueueItem {
-  id: string;
-  sessionId: string;
-  scanId: string;
-  attempts: number;
-  lastAttempt: string | null;
-}
-
 interface InventariSpoqDB extends DBSchema {
-  pendingScans: {
+  offlineScans: {
     key: string;
-    value: PendingScan;
+    value: OfflineScan;
     indexes: { 'by-session': string; 'by-synced': number };
-  };
-  syncQueue: {
-    key: string;
-    value: SyncQueueItem;
-    indexes: { 'by-session': string };
   };
   appState: {
     key: string;
@@ -38,53 +29,69 @@ let dbInstance: IDBPDatabase<InventariSpoqDB> | null = null;
 export async function getDb(): Promise<IDBPDatabase<InventariSpoqDB>> {
   if (dbInstance) return dbInstance;
 
-  dbInstance = await openDB<InventariSpoqDB>('inventarispoq', 1, {
-    upgrade(db) {
-      const scanStore = db.createObjectStore('pendingScans', { keyPath: 'id' });
-      scanStore.createIndex('by-session', 'sessionId');
-      scanStore.createIndex('by-synced', 'synced');
+  dbInstance = await openDB<InventariSpoqDB>('inventarispoq', 2, {
+    upgrade(db, oldVersion) {
+      if (oldVersion < 2) {
+        const names = db.objectStoreNames as unknown as DOMStringList;
+        if (names.contains('pendingScans')) {
+          (db as any).deleteObjectStore('pendingScans');
+        }
+        if (names.contains('syncQueue')) {
+          (db as any).deleteObjectStore('syncQueue');
+        }
+        if (!db.objectStoreNames.contains('appState')) {
+          db.createObjectStore('appState', { keyPath: 'key' });
+        }
+      }
 
-      const queueStore = db.createObjectStore('syncQueue', { keyPath: 'id' });
-      queueStore.createIndex('by-session', 'sessionId');
-
-      db.createObjectStore('appState', { keyPath: 'key' });
+      if (!db.objectStoreNames.contains('offlineScans')) {
+        const store = db.createObjectStore('offlineScans', { keyPath: 'id' });
+        store.createIndex('by-session', 'sessionId');
+        store.createIndex('by-synced', 'synced');
+      }
     },
   });
 
   return dbInstance;
 }
 
-export async function savePendingScan(scan: PendingScan): Promise<void> {
+export async function saveOfflineScan(scan: OfflineScan): Promise<void> {
   const db = await getDb();
-  await db.put('pendingScans', scan);
+  await db.put('offlineScans', scan);
 }
 
-export async function getPendingScans(sessionId: string): Promise<PendingScan[]> {
+export async function getOfflineScansForSession(sessionId: string): Promise<OfflineScan[]> {
   const db = await getDb();
-  return db.getAllFromIndex('pendingScans', 'by-session', sessionId);
+  return db.getAllFromIndex('offlineScans', 'by-session', sessionId);
 }
 
-export async function getUnsyncedScans(): Promise<PendingScan[]> {
+export async function getUnsyncedScans(): Promise<OfflineScan[]> {
   const db = await getDb();
-  const all = await db.getAll('pendingScans');
+  const all = await db.getAll('offlineScans');
   return all.filter((s) => !s.synced);
+}
+
+export async function getAllOfflineScansCount(): Promise<number> {
+  const db = await getDb();
+  const all = await db.getAll('offlineScans');
+  return all.filter((s) => !s.synced).length;
 }
 
 export async function markScanSynced(id: string): Promise<void> {
   const db = await getDb();
-  const scan = await db.get('pendingScans', id);
+  const scan = await db.get('offlineScans', id);
   if (scan) {
     scan.synced = true;
-    await db.put('pendingScans', scan);
+    await db.put('offlineScans', scan);
   }
 }
 
-export async function clearSyncedScans(): Promise<void> {
+export async function deleteSyncedScans(): Promise<void> {
   const db = await getDb();
-  const all = await db.getAll('pendingScans');
+  const all = await db.getAll('offlineScans');
   for (const scan of all) {
     if (scan.synced) {
-      await db.delete('pendingScans', scan.id);
+      await db.delete('offlineScans', scan.id);
     }
   }
 }

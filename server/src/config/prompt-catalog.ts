@@ -34,9 +34,9 @@ export const SESSION_START_RULES: SessionStartRule[] = [
   },
 ];
 
-/** On-scan prompts by object type Dutch name (FR30). */
+/** On-scan prompts by object type Dutch name (FR30). Keys must match ObjectType.nameNl from seed. */
 export const ON_SCAN_PROMPTS_BY_TYPE_NL: Record<string, PromptFieldDef[]> = {
-  Personenlift: [
+  Personenliften: [
     {
       key: 'interval',
       label: 'Keuringsinterval',
@@ -47,7 +47,18 @@ export const ON_SCAN_PROMPTS_BY_TYPE_NL: Record<string, PromptFieldDef[]> = {
       ],
     },
   ],
-  Bliksemafleider: [
+  Mindervalidenliften: [
+    {
+      key: 'hoogte',
+      label: 'Hefhoogte',
+      type: 'choice',
+      options: [
+        { value: 'lt3m', label: '< 3 meter' },
+        { value: 'gte3m', label: '≥ 3 meter' },
+      ],
+    },
+  ],
+  Bliksemafleiders: [
     { key: 'daalleidingen', label: 'Aantal daalleidingen', type: 'number' },
   ],
   Heftruck: [
@@ -58,6 +69,35 @@ export const ON_SCAN_PROMPTS_BY_TYPE_NL: Record<string, PromptFieldDef[]> = {
       options: [
         { value: 'hef', label: 'Heftruck' },
         { value: 'behandeling', label: 'Behandelingstoestel' },
+      ],
+    },
+  ],
+  Rolbrug: [
+    {
+      key: 'gewichtsklasse',
+      label: 'Draagvermogen > 25 ton?',
+      type: 'choice',
+      options: [
+        { value: 'lte25t', label: '≤ 25 ton' },
+        { value: 'gt25t', label: '> 25 ton' },
+      ],
+    },
+    {
+      key: 'spoorbaan',
+      label: 'Spoorbaan > 8 meter?',
+      type: 'choice',
+      options: [
+        { value: 'lte8m', label: '≤ 8 meter' },
+        { value: 'gt8m', label: '> 8 meter' },
+      ],
+    },
+    {
+      key: 'spoorlengte',
+      label: 'Lengte spoor > 50 meter?',
+      type: 'choice',
+      options: [
+        { value: 'lte50m', label: '≤ 50 meter' },
+        { value: 'gt50m', label: '> 50 meter' },
       ],
     },
   ],

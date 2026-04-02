@@ -13,6 +13,32 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
         navigateFallbackDenylist: [/^\/api\//],
+        runtimeCaching: [
+          {
+            urlPattern: /^\/api\/object-types(\?.*)?$/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'api-object-types',
+              expiration: { maxEntries: 5, maxAgeSeconds: 60 * 60 * 24 },
+            },
+          },
+          {
+            urlPattern: /^\/api\/sessions\/[^/]+$/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'api-session-detail',
+              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 },
+            },
+          },
+          {
+            urlPattern: /^\/api\/sessions(\?.*)?$/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'api-sessions-list',
+              expiration: { maxEntries: 5, maxAgeSeconds: 60 * 60 * 24 },
+            },
+          },
+        ],
       },
       manifest: {
         name: 'InventariSpoq',

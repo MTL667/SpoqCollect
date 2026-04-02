@@ -5,18 +5,16 @@ echo "=== InventariSpoq startup ==="
 echo "DATABASE_URL is set: $([ -n "$DATABASE_URL" ] && echo 'YES' || echo 'NO')"
 echo "NODE_ENV: $NODE_ENV"
 echo "Working dir: $(pwd)"
-echo "Files in /app:"
-ls -la /app/
 
 echo ""
-echo "=== Pushing database schema ==="
+echo "=== Applying database migrations ==="
 if [ "$FORCE_DB_RESET" = "true" ]; then
-  echo "FORCE_DB_RESET=true → dropping and recreating database"
-  npx prisma db push --force-reset 2>&1
+  echo "FORCE_DB_RESET=true → resetting database and re-applying all migrations"
+  npx prisma migrate reset --force 2>&1
 else
-  npx prisma db push --accept-data-loss 2>&1
+  npx prisma migrate deploy 2>&1
 fi
-echo "=== Schema push complete ==="
+echo "=== Migrations complete ==="
 
 echo ""
 echo "=== Running seed ==="
