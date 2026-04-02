@@ -13,7 +13,7 @@ import { locationsRouter } from './routes/locations.js';
 import { priorReportsRouter } from './routes/prior-reports.js';
 import { mappingRulesRouter } from './routes/mapping-rules.js';
 import { mappingProfilesRouter } from './routes/mapping-profiles.js';
-import { authMiddleware } from './middleware/auth.js';
+import { authMiddleware, requireAdmin } from './middleware/auth.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { config } from './config.js';
 import { logger } from './lib/logger.js';
@@ -37,8 +37,8 @@ app.use('/api/sessions', scansRouter);
 app.use('/api/scans', scansRouter);
 app.use('/api/sessions', exportsRouter);
 app.use('/api/sessions', priorReportsRouter);
-app.use('/api/admin/mapping-rules', mappingRulesRouter);
-app.use('/api/admin/mapping-profiles', mappingProfilesRouter);
+app.use('/api/admin/mapping-rules', requireAdmin, mappingRulesRouter);
+app.use('/api/admin/mapping-profiles', requireAdmin, mappingProfilesRouter);
 
 app.use('/api', ((_req, res) => {
   res.status(404).json({ error: { code: 'NOT_FOUND', message: 'API route not found' } });

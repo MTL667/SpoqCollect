@@ -3,6 +3,17 @@ interface PhotoThumbnailProps {
   size?: number;
 }
 
+function getAuthToken(): string {
+  try {
+    const stored = localStorage.getItem('inventarispoq_auth');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return parsed?.token ?? '';
+    }
+  } catch { /* ignore */ }
+  return '';
+}
+
 export default function PhotoThumbnail({ photoPath, size = 48 }: PhotoThumbnailProps) {
   if (!photoPath) {
     return (
@@ -18,9 +29,11 @@ export default function PhotoThumbnail({ photoPath, size = 48 }: PhotoThumbnailP
     );
   }
 
+  const token = getAuthToken();
+
   return (
     <img
-      src={`/api/scans/photo/${photoPath}`}
+      src={`/api/scans/photo/${photoPath}${token ? `?token=${token}` : ''}`}
       alt="Scan"
       className="rounded object-cover"
       style={{ width: size, height: size }}

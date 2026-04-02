@@ -9,7 +9,7 @@ declare global {
   }
 }
 
-const PUBLIC_PATHS = ['/api/auth/login', '/api/health', '/api/scans/photo/', '/api/sessions/photo/'];
+const PUBLIC_PATHS = ['/api/auth/login', '/api/health'];
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   if (PUBLIC_PATHS.some((p) => req.path.startsWith(p))) {
@@ -38,4 +38,22 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
       error: { code: 'UNAUTHORIZED', message: 'Invalid or expired token' },
     });
   }
+}
+
+export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+  if (!req.inspector) {
+    res.status(401).json({
+      error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+    });
+    return;
+  }
+
+  if (req.inspector.role !== 'admin') {
+    res.status(403).json({
+      error: { code: 'FORBIDDEN', message: 'Admin access required' },
+    });
+    return;
+  }
+
+  next();
 }

@@ -721,7 +721,7 @@ async function main() {
   }
   console.log('  3 subasset configs created');
 
-  console.log('Seeding test inspector...');
+  console.log('Seeding inspectors...');
   const passwordHash = await hash('test1234', 10);
   await prisma.inspector.upsert({
     where: { email: 'test@inventarispoq.be' },
@@ -733,7 +733,18 @@ async function main() {
       role: 'inspector',
     },
   });
-  console.log('  Test inspector upserted');
+
+  await prisma.inspector.upsert({
+    where: { email: 'admin@inventarispoq.be' },
+    update: { role: 'admin' },
+    create: {
+      email: 'admin@inventarispoq.be',
+      name: 'Admin',
+      passwordHash,
+      role: 'admin',
+    },
+  });
+  console.log('  Inspectors upserted');
 
   console.log('Seed complete!');
 }

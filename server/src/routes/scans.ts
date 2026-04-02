@@ -4,6 +4,7 @@ import { upload } from '../middleware/upload.js';
 import { movePhoto, getPhotoAbsolutePath } from '../services/storage.js';
 import { classifyPhoto } from '../services/ai-classifier.js';
 import { extractInspectionData } from '../services/label-extractor';
+import { verifyToken } from '../lib/jwt';
 import { logger } from '../lib/logger.js';
 
 export const scansRouter = Router();
@@ -500,6 +501,20 @@ scansRouter.get('/:id/status', async (req: Request, res: Response, next: NextFun
 });
 
 scansRouter.get('/photo/:sessionId/:filename', (req: Request, res: Response) => {
+  if (!req.inspector) {
+    const token = typeof req.query.token === 'string' ? req.query.token : null;
+    if (!token) {
+      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+      return;
+    }
+    try {
+      verifyToken(token);
+    } catch {
+      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid token' } });
+      return;
+    }
+  }
+
   const { sessionId, filename } = req.params as Record<string, string>;
   const filePath = getPhotoAbsolutePath(`${sessionId}/${filename}`);
   res.sendFile(filePath, (err) => {
