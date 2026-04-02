@@ -176,6 +176,30 @@ export function usePatchSessionPrompts(sessionId: string) {
   });
 }
 
+export function useUpdateSession(sessionId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      clientName?: string;
+      street?: string;
+      number?: string;
+      bus?: string | null;
+      postalCode?: string;
+      city?: string;
+      mappingProfileId?: string | null;
+    }) =>
+      apiClient<SessionDetail>(`/api/sessions/${sessionId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sessions'] });
+      qc.invalidateQueries({ queryKey: ['sessions', sessionId] });
+    },
+  });
+}
+
 export function useReopenSession(sessionId: string) {
   const qc = useQueryClient();
 

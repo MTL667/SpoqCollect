@@ -118,6 +118,58 @@ sessionsRouter.get('/:id', async (req, res, next) => {
   }
 });
 
+/** Update session details (address, mapping profile, client name). */
+sessionsRouter.patch('/:id', async (req, res, next) => {
+  try {
+    const session = await prisma.inventorySession.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!session) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Session not found' } });
+      return;
+    }
+
+    if (session.inspectorId !== req.inspector!.inspectorId) {
+      res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not your session' } });
+      return;
+    }
+
+    const body = req.body as {
+      clientName?: string;
+      street?: string;
+      number?: string;
+      bus?: string | null;
+      postalCode?: string;
+      city?: string;
+      mappingProfileId?: string | null;
+    };
+
+    const data: Record<string, unknown> = {};
+    if (body.clientName !== undefined) data.clientName = body.clientName.trim();
+    if (body.street !== undefined) data.street = body.street.trim();
+    if (body.number !== undefined) data.number = body.number.trim();
+    if (body.bus !== undefined) data.bus = body.bus?.trim() || null;
+    if (body.postalCode !== undefined) data.postalCode = body.postalCode.trim();
+    if (body.city !== undefined) data.city = body.city.trim();
+    if (body.mappingProfileId !== undefined) data.mappingProfileId = body.mappingProfileId || null;
+
+    const updated = await prisma.inventorySession.update({
+      where: { id: req.params.id },
+      data,
+      include: {
+        buildingType: { select: { id: true, nameNl: true } },
+        mappingProfile: { select: { id: true, name: true, country: true } },
+        inspector: { select: { id: true, name: true } },
+      },
+    });
+
+    res.json({ data: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
 /** Prompt catalog + completion checklist for client (Epic 6). */
 sessionsRouter.get('/:id/prompts/catalog', async (req, res, next) => {
   try {

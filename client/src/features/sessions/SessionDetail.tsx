@@ -5,10 +5,12 @@ import {
   useSession,
   useCompleteSession,
   useReopenSession,
+  useUpdateSession,
   useCreateLocation,
   useCreateFloor,
   useDeleteFloor,
   useDuplicateFloor,
+  useMappingProfiles,
   formatAddress,
 } from './use-sessions';
 import type { LocationItem, FloorItem, ScanRecordItem } from './use-sessions';
@@ -29,12 +31,53 @@ export default function SessionDetail() {
   const { data: session, isLoading, isError } = useSession(id!);
   const completeSession = useCompleteSession(id!);
   const reopenSession = useReopenSession(id!);
+  const updateSession = useUpdateSession(id!);
   const createLocation = useCreateLocation(id!);
+  const { data: mappingProfiles } = useMappingProfiles();
   const { data: promptCatalog, refetch: refetchPromptCatalog } = usePromptCatalog(id);
   const [showCompleteWizard, setShowCompleteWizard] = useState(false);
   const [completeWizardError, setCompleteWizardError] = useState<string | null>(null);
   const [newLocationName, setNewLocationName] = useState('');
   const [showAddLocation, setShowAddLocation] = useState(false);
+  const [showEditSession, setShowEditSession] = useState(false);
+  const [editForm, setEditForm] = useState({
+    clientName: '',
+    street: '',
+    number: '',
+    bus: '',
+    postalCode: '',
+    city: '',
+    mappingProfileId: '',
+  });
+
+  function openEditSession() {
+    if (!session) return;
+    setEditForm({
+      clientName: session.clientName,
+      street: session.street,
+      number: session.number,
+      bus: session.bus ?? '',
+      postalCode: session.postalCode,
+      city: session.city,
+      mappingProfileId: session.mappingProfileId ?? '',
+    });
+    setShowEditSession(true);
+  }
+
+  function handleSaveSession() {
+    updateSession.mutate(
+      {
+        clientName: editForm.clientName,
+        street: editForm.street,
+        number: editForm.number,
+        bus: editForm.bus || null,
+        postalCode: editForm.postalCode,
+        city: editForm.city,
+        mappingProfileId: editForm.mappingProfileId || null,
+      },
+      { onSuccess: () => setShowEditSession(false) },
+    );
+  }
 
   if (isLoading) return <div className="p-6 text-gray-500">Laden...</div>;
   if (isError || !session) return <div className="p-6 text-red-600">Sessie niet gevonden</div>;
@@ -59,8 +102,18 @@ export default function SessionDetail() {
         <button onClick={() => navigate('/sessions')} className="text-blue-700 text-sm mb-2 hover:underline">
           &larr; Terug naar sessies
         </button>
-        <h1 className="text-xl font-bold text-gray-900">{session.clientName}</h1>
-        <p className="text-sm text-gray-600">{formatAddress(session)}</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">{session.clientName}</h1>
+            <p className="text-sm text-gray-600">{formatAddress(session)}</p>
+          </div>
+          <button
+            onClick={openEditSession}
+            className="text-xs text-blue-600 hover:text-blue-700 px-2 py-1 border border-blue-200 rounded-md hover:bg-blue-50 shrink-0"
+          >
+            Bewerk
+          </button>
+        </div>
         <div className="text-sm text-gray-500 mt-1">
           {session.buildingType.nameNl} &middot; {session.inspector.name} &middot;{' '}
           {new Date(session.createdAt).toLocaleString('nl-BE')} &middot;{' '}
@@ -171,6 +224,116 @@ export default function SessionDetail() {
           </div>
         )}
       </div>
+
+      {showEditSession && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[85vh] overflow-y-auto p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900">Sessie bewerken</h3>
+              <button onClick={() => setShowEditSession(false)} className="text-gray-400 hover:text-gray-600 text-lg">&times;</button>
+            </div>
+
+            <label className="block">
+              <span className="text-xs font-medium text-gray-600">Klantnaam</span>
+              <input
+                type="text"
+                value={editForm.clientName}
+                onChange={(e) => setEditForm((p) => ({ ...p, clientName: e.target.value }))}
+                className="mt-1 w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-medium text-gray-600">Straat</span>
+              <input
+                type="text"
+                value={editForm.street}
+                onChange={(e) => setEditForm((p) => ({ ...p, street: e.target.value }))}
+                className="mt-1 w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </label>
+
+            <div className="flex gap-2">
+              <label className="block flex-1">
+                <span className="text-xs font-medium text-gray-600">Nummer</span>
+                <input
+                  type="text"
+                  value={editForm.number}
+                  onChange={(e) => setEditForm((p) => ({ ...p, number: e.target.value }))}
+                  className="mt-1 w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </label>
+              <label className="block w-24">
+                <span className="text-xs font-medium text-gray-600">Bus</span>
+                <input
+                  type="text"
+                  value={editForm.bus}
+                  onChange={(e) => setEditForm((p) => ({ ...p, bus: e.target.value }))}
+                  className="mt-1 w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="optioneel"
+                />
+              </label>
+            </div>
+
+            <div className="flex gap-2">
+              <label className="block w-28">
+                <span className="text-xs font-medium text-gray-600">Postcode</span>
+                <input
+                  type="text"
+                  value={editForm.postalCode}
+                  onChange={(e) => setEditForm((p) => ({ ...p, postalCode: e.target.value }))}
+                  className="mt-1 w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </label>
+              <label className="block flex-1">
+                <span className="text-xs font-medium text-gray-600">Stad</span>
+                <input
+                  type="text"
+                  value={editForm.city}
+                  onChange={(e) => setEditForm((p) => ({ ...p, city: e.target.value }))}
+                  className="mt-1 w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </label>
+            </div>
+
+            <label className="block">
+              <span className="text-xs font-medium text-gray-600">Mapping profiel (land)</span>
+              <select
+                value={editForm.mappingProfileId}
+                onChange={(e) => setEditForm((p) => ({ ...p, mappingProfileId: e.target.value }))}
+                className="mt-1 w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="">Geen profiel</option>
+                {mappingProfiles
+                  ?.filter((p) => p.active)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.country})
+                    </option>
+                  ))}
+              </select>
+            </label>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowEditSession(false)}
+                className="flex-1 py-2 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              >
+                Annuleren
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveSession}
+                disabled={updateSession.isPending || !editForm.clientName.trim() || !editForm.street.trim() || !editForm.number.trim() || !editForm.postalCode.trim() || !editForm.city.trim()}
+                className="flex-1 py-2 text-sm bg-blue-700 text-white font-medium rounded-md hover:bg-blue-800 disabled:opacity-50"
+              >
+                {updateSession.isPending ? 'Opslaan...' : 'Opslaan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <SessionCompleteWizard
         open={showCompleteWizard}
