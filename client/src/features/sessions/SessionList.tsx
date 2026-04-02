@@ -72,6 +72,9 @@ export default function SessionList() {
                   {s.buildingType.nameNl} &middot;{' '}
                   {new Date(s.createdAt).toLocaleDateString('nl-BE')} &middot;{' '}
                   {s._count.scanRecords} objecten
+                  {(s as any).inspector?.name && (
+                    <span className="ml-1">&middot; {(s as any).inspector.name}</span>
+                  )}
                 </p>
               </div>
               <StatusBadge status={s.status} />

@@ -66,11 +66,13 @@ sessionsRouter.post('/', async (req, res, next) => {
 
 sessionsRouter.get('/', async (req, res, next) => {
   try {
+    const isAdmin = req.inspector!.role === 'admin';
     const sessions = await prisma.inventorySession.findMany({
-      where: { inspectorId: req.inspector!.inspectorId },
+      where: isAdmin ? {} : { inspectorId: req.inspector!.inspectorId },
       include: {
         buildingType: { select: { id: true, nameNl: true } },
         mappingProfile: { select: { id: true, name: true, country: true } },
+        inspector: { select: { id: true, name: true } },
         _count: { select: { scanRecords: true, draftAssets: true, priorReportFiles: true } },
       },
       orderBy: { updatedAt: 'desc' },
@@ -117,7 +119,8 @@ sessionsRouter.get('/:id', async (req, res, next) => {
       return;
     }
 
-    if (session.inspectorId !== req.inspector!.inspectorId) {
+    const isAdmin = req.inspector!.role === 'admin';
+    if (!isAdmin && session.inspectorId !== req.inspector!.inspectorId) {
       res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not your session' } });
       return;
     }
