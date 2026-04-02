@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { deriveRegion } from './region.js';
 
 function escapeCsvCell(v: string): string {
   if (/[",\n\r]/.test(v)) {
@@ -21,14 +22,50 @@ export interface OdooLine {
   exportParty: string;
 }
 
+interface MappingCandidate {
+  id: string;
+  objectTypeId: string;
+  regime: string | null;
+  region: string | null;
+  minQuantity: number | null;
+  maxQuantity: number | null;
+  odooProductCode: string;
+  startPriceProductCode: string | null;
+  priority: number;
+}
+
 /**
- * Map scans to Odoo-oriented lines using ServiceCodeMapping.
+ * Resolve the best mapping rule for a given objectType, considering:
+ * 1. regime match
+ * 2. region match (exact or null=wildcard)
+ * 3. quantity range (min/max, null=no limit)
+ * 4. highest priority wins among qualifying rules
+ */
+function resolveMapping(
+  candidates: MappingCandidate[],
+  opts: { regime: string | null; region: string | null; totalQuantity: number },
+): MappingCandidate | null {
+  const qualifying = candidates.filter((m) => {
+    if (m.regime !== null && m.regime !== '' && m.regime !== opts.regime) return false;
+    if (m.region !== null && m.region !== opts.region) return false;
+    if (m.minQuantity !== null && opts.totalQuantity < m.minQuantity) return false;
+    if (m.maxQuantity !== null && opts.totalQuantity > m.maxQuantity) return false;
+    return true;
+  });
+
+  if (qualifying.length === 0) return null;
+
+  qualifying.sort((a, b) => b.priority - a.priority);
+  return qualifying[0];
+}
+
+/**
+ * Map scans to Odoo-oriented lines using ServiceCodeMapping rules.
  *
+ * Resolution considers regime, region (from postal code), and quantity thresholds.
  * When a mapping has a startPriceProductCode, TWO lines are emitted:
  *   1. A "startprijs" line (qty=1) – emitted only ONCE per ObjectType per session
  *   2. A "stukprijs" line (qty=N) – emitted for each scan
- *
- * When a mapping has no startPriceProductCode, a single line with lineType=null is emitted.
  */
 export async function deriveOdooLines(sessionId: string): Promise<OdooLine[]> {
   const session = await prisma.inventorySession.findUnique({
@@ -47,11 +84,17 @@ export async function deriveOdooLines(sessionId: string): Promise<OdooLine[]> {
 
   const promptData = (session.sessionPromptData as { end?: Record<string, string> } | null) ?? {};
   const globalRegime = promptData.end?.brandVeiligheidRegime ?? null;
+  const sessionRegion = deriveRegion(session.postalCode);
 
   const mappings = await prisma.serviceCodeMapping.findMany({
     where: { active: true, version: session.mappingVersion },
-    include: { objectType: true },
   });
+
+  const quantityByType = new Map<string, number>();
+  for (const scan of session.scanRecords) {
+    const tid = scan.confirmedTypeId!;
+    quantityByType.set(tid, (quantityByType.get(tid) ?? 0) + scan.quantity);
+  }
 
   const lines: OdooLine[] = [];
   const emittedStartPrices = new Set<string>();
@@ -61,29 +104,19 @@ export async function deriveOdooLines(sessionId: string): Promise<OdooLine[]> {
     const confirmedType = scan.confirmedType!;
     const typeNl = confirmedType.nameNl;
     const party = confirmedType.exportParty;
+    const totalQty = quantityByType.get(typeId) ?? scan.quantity;
 
     const candidates = mappings.filter((m) => m.objectTypeId === typeId);
-    let code: string | null = null;
-    let startCode: string | null = null;
-    let regime: string | null = null;
-    let unmapped = false;
+    const picked = resolveMapping(candidates, {
+      regime: globalRegime,
+      region: sessionRegion,
+      totalQuantity: totalQty,
+    });
 
-    if (candidates.length === 0) {
-      unmapped = true;
-    } else {
-      const byRegime = globalRegime
-        ? candidates.find((m) => m.regime === globalRegime)
-        : null;
-      const defaultRow = candidates.find((m) => m.regime === null || m.regime === '');
-      const picked = byRegime ?? defaultRow ?? candidates[0];
-      if (picked) {
-        code = picked.odooProductCode;
-        startCode = picked.startPriceProductCode;
-        regime = picked.regime;
-      } else {
-        unmapped = true;
-      }
-    }
+    const code = picked?.odooProductCode ?? null;
+    const startCode = picked?.startPriceProductCode ?? null;
+    const regime = picked?.regime ?? null;
+    const unmapped = !picked;
 
     const resolvedRegime = regime ?? globalRegime;
     const startPriceKey = `${typeId}::${resolvedRegime ?? ''}`;

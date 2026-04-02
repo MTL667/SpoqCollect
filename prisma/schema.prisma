@@ -182,9 +182,13 @@ model ServiceCodeMapping {
   id                    String     @id @default(cuid())
   objectTypeId          String     @map("object_type_id")
   regime                String?
+  region                String?
+  minQuantity           Int?       @map("min_quantity")
+  maxQuantity           Int?       @map("max_quantity")
   odooProductCode       String     @map("odoo_product_code")
   startPriceProductCode String?    @map("start_price_product_code")
   labelNl               String?    @map("label_nl")
+  priority              Int        @default(0)
   active                Boolean    @default(true)
   version               Int        @default(1)
   objectType            ObjectType @relation(fields: [objectTypeId], references: [id], onDelete: Cascade)

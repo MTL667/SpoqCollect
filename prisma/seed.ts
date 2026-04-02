@@ -30,9 +30,13 @@ interface OdooProductSeed {
 interface MappingSeed {
   objectTypeNl: string;
   regime: string | null;
+  region: string | null;
+  minQuantity: number | null;
+  maxQuantity: number | null;
   odooProductCode: string;
   startPriceProductCode: string | null;
   labelNl: string;
+  priority: number;
 }
 
 const ALL_BUILDINGS = [
@@ -364,113 +368,124 @@ const odooProducts: OdooProductSeed[] = [
 // ────────────────────────────────────────────────────────────────
 // ServiceCodeMappings: ObjectType → Odoo product code(s)
 // ────────────────────────────────────────────────────────────────
+const R = null; // shorthand for region=null
+const Q = null; // shorthand for min/maxQuantity=null
+const P0 = 0;   // default priority
+
 const serviceCodeMappings: MappingSeed[] = [
   // === Elektriciteit ===
-  { objectTypeNl: 'Laagspanning (max 10 kringen)', regime: null, odooProductCode: 'PC.EK3.04', startPriceProductCode: 'PC.EK2.01.', labelNl: 'EK periodiek (per kring) + startprijs LS teller' },
-  { objectTypeNl: 'Laagspanning (vanaf 11 kringen)', regime: null, odooProductCode: 'PC.EK3.04', startPriceProductCode: 'PC.EK2.01.', labelNl: 'EK periodiek (per kring) + startprijs LS teller' },
-  { objectTypeNl: 'Laagspanning gemene delen', regime: null, odooProductCode: 'PC.EK1.38', startPriceProductCode: 'PC.EK1.38.', labelNl: 'EK gemeenschappelijke delen (per bord) + startprijs' },
-  { objectTypeNl: 'Hoogspanning', regime: null, odooProductCode: 'PC.EK.4.01', startPriceProductCode: null, labelNl: 'Periodieke keuring HS (per cabine)' },
-  { objectTypeNl: 'ATEX', regime: 'gas', odooProductCode: 'PC.EK3.05', startPriceProductCode: 'PC.EK3.05.', labelNl: 'EK ATEX gasexplosieve atmosfeer (per zone) + startprijs' },
-  { objectTypeNl: 'ATEX', regime: 'stof', odooProductCode: 'PC.EK3.06', startPriceProductCode: 'PC.EK3.06.', labelNl: 'EK ATEX stofexplosieve atmosfeer (per zone) + startprijs' },
-  { objectTypeNl: 'ATEX', regime: null, odooProductCode: 'PC.EK3.02', startPriceProductCode: null, labelNl: 'ATEX nazicht zoneringsdossier gasexplosie (default)' },
-  { objectTypeNl: 'Bliksemafleiders', regime: null, odooProductCode: 'PC.EK.5.01', startPriceProductCode: 'PC.EK5.01', labelNl: 'EK bliksemafleider periodiek (per daalleiding) + startprijs' },
-  { objectTypeNl: 'Bliksemafleiders', regime: 'gelijkvormigheid', odooProductCode: 'PC.EK5.02', startPriceProductCode: 'PC.EK5.02.', labelNl: 'Gelijkvormigheid bliksemafleider (per daalleiding) + startprijs' },
+  { objectTypeNl: 'Laagspanning (max 10 kringen)', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.EK3.04', startPriceProductCode: 'PC.EK2.01.', labelNl: 'EK periodiek (per kring) + startprijs LS teller', priority: P0 },
+  { objectTypeNl: 'Laagspanning (vanaf 11 kringen)', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.EK3.04', startPriceProductCode: 'PC.EK2.01.', labelNl: 'EK periodiek (per kring) + startprijs LS teller', priority: P0 },
+  { objectTypeNl: 'Laagspanning gemene delen', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.EK1.38', startPriceProductCode: 'PC.EK1.38.', labelNl: 'EK gemeenschappelijke delen (per bord) + startprijs', priority: P0 },
+  { objectTypeNl: 'Hoogspanning', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.EK.4.01', startPriceProductCode: null, labelNl: 'Periodieke keuring HS (per cabine)', priority: P0 },
+  { objectTypeNl: 'ATEX', regime: 'gas', region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.EK3.05', startPriceProductCode: 'PC.EK3.05.', labelNl: 'EK ATEX gasexplosieve atmosfeer (per zone) + startprijs', priority: P0 },
+  { objectTypeNl: 'ATEX', regime: 'stof', region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.EK3.06', startPriceProductCode: 'PC.EK3.06.', labelNl: 'EK ATEX stofexplosieve atmosfeer (per zone) + startprijs', priority: P0 },
+  { objectTypeNl: 'ATEX', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.EK3.02', startPriceProductCode: null, labelNl: 'ATEX nazicht zoneringsdossier gasexplosie (default)', priority: P0 },
+  { objectTypeNl: 'Bliksemafleiders', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.EK.5.01', startPriceProductCode: 'PC.EK5.01', labelNl: 'EK bliksemafleider periodiek (per daalleiding) + startprijs', priority: P0 },
+  { objectTypeNl: 'Bliksemafleiders', regime: 'gelijkvormigheid', region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.EK5.02', startPriceProductCode: 'PC.EK5.02.', labelNl: 'Gelijkvormigheid bliksemafleider (per daalleiding) + startprijs', priority: P0 },
 
   // === Gas ===
-  { objectTypeNl: 'Gasdichtheid < 70kW', regime: null, odooProductCode: 'PC.G.02', startPriceProductCode: null, labelNl: 'Gaskeuring installatie <70kW' },
-  { objectTypeNl: 'Gasdichtheid ≥ 70kW (stookplaats)', regime: null, odooProductCode: 'PC.G.05', startPriceProductCode: null, labelNl: 'Gaskeuring stookplaats >70kW' },
-  { objectTypeNl: 'Gasdetectie', regime: null, odooProductCode: 'PC.BD3.03', startPriceProductCode: 'PC.BD3.03.', labelNl: 'Gasdetectie (per component) + startprijs' },
+  { objectTypeNl: 'Gasdichtheid < 70kW', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.G.02', startPriceProductCode: null, labelNl: 'Gaskeuring installatie <70kW', priority: P0 },
+  { objectTypeNl: 'Gasdichtheid ≥ 70kW (stookplaats)', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.G.05', startPriceProductCode: null, labelNl: 'Gaskeuring stookplaats >70kW', priority: P0 },
+  { objectTypeNl: 'Gasdetectie', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.BD3.03', startPriceProductCode: 'PC.BD3.03.', labelNl: 'Gasdetectie (per component) + startprijs', priority: P0 },
 
   // === Brand ===
-  { objectTypeNl: 'Veiligheidsverlichting', regime: 'werking', odooProductCode: 'PC.VV.01', startPriceProductCode: 'PC.VV.01.1', labelNl: 'Noodverlichting goede werking (per component) + startprijs' },
-  { objectTypeNl: 'Veiligheidsverlichting', regime: 'norm', odooProductCode: 'PC.VV.02', startPriceProductCode: 'PC.VV.02.', labelNl: 'Noodverlichting norm jaarlijks (per component) + startprijs' },
-  { objectTypeNl: 'Veiligheidsverlichting', regime: null, odooProductCode: 'PC.VV.01', startPriceProductCode: 'PC.VV.01.1', labelNl: 'Noodverlichting goede werking (per component) + startprijs (default)' },
-  { objectTypeNl: 'Branddetectie goede werking', regime: 'werking', odooProductCode: 'PC.BD1', startPriceProductCode: 'PC.BD1.8', labelNl: 'Branddetectie goede werking (per component) + startprijs' },
-  { objectTypeNl: 'Branddetectie goede werking', regime: 'norm', odooProductCode: 'PC.BD2.02', startPriceProductCode: 'PC.BD1.8', labelNl: 'Branddetectie norm (per component) + startprijs' },
-  { objectTypeNl: 'Branddetectie goede werking', regime: null, odooProductCode: 'PC.BD1', startPriceProductCode: 'PC.BD1.8', labelNl: 'Branddetectie goede werking (per component) + startprijs (default)' },
-  { objectTypeNl: 'Rookkoepels goede werking', regime: null, odooProductCode: 'PC.BD3.02', startPriceProductCode: 'PC.BD3.02.', labelNl: 'Rookkoepels periodieke controle + startprijs' },
+  { objectTypeNl: 'Veiligheidsverlichting', regime: 'werking', region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.VV.01', startPriceProductCode: 'PC.VV.01.1', labelNl: 'Noodverlichting goede werking (per component) + startprijs', priority: P0 },
+  { objectTypeNl: 'Veiligheidsverlichting', regime: 'norm', region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.VV.02', startPriceProductCode: 'PC.VV.02.', labelNl: 'Noodverlichting norm jaarlijks (per component) + startprijs', priority: P0 },
+  { objectTypeNl: 'Veiligheidsverlichting', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.VV.01', startPriceProductCode: 'PC.VV.01.1', labelNl: 'Noodverlichting goede werking (per component) + startprijs (default)', priority: P0 },
+  { objectTypeNl: 'Branddetectie goede werking', regime: 'werking', region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.BD1', startPriceProductCode: 'PC.BD1.8', labelNl: 'Branddetectie goede werking (per component) + startprijs', priority: P0 },
+  { objectTypeNl: 'Branddetectie goede werking', regime: 'norm', region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.BD2.02', startPriceProductCode: 'PC.BD1.8', labelNl: 'Branddetectie norm (per component) + startprijs', priority: P0 },
+  { objectTypeNl: 'Branddetectie goede werking', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.BD1', startPriceProductCode: 'PC.BD1.8', labelNl: 'Branddetectie goede werking (per component) + startprijs (default)', priority: P0 },
+  { objectTypeNl: 'Rookkoepels goede werking', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.BD3.02', startPriceProductCode: 'PC.BD3.02.', labelNl: 'Rookkoepels periodieke controle + startprijs', priority: P0 },
 
   // === Hef en Hijs (original) ===
-  { objectTypeNl: 'Personenliften', regime: null, odooProductCode: 'PC.HH.04', startPriceProductCode: null, labelNl: 'Personenliften: Periodieke 6 maandelijkse controle' },
-  { objectTypeNl: 'Goederenliften', regime: null, odooProductCode: 'PC.HH.19', startPriceProductCode: null, labelNl: 'Goederenlift niet betreedbaar: Periodiek' },
-  { objectTypeNl: 'Fabrieksliften', regime: null, odooProductCode: 'PC.HH.21', startPriceProductCode: null, labelNl: 'Goederenlift (Fabriekslift) Betreedbaar: Periodiek' },
-  { objectTypeNl: 'Mindervalidenliften', regime: null, odooProductCode: 'PC.HH.72', startPriceProductCode: null, labelNl: 'Autolift: periodieke controle' },
-  { objectTypeNl: 'Hangstelling', regime: null, odooProductCode: 'PC.HH.38', startPriceProductCode: null, labelNl: 'Beweegbare hangstelling: periodiek' },
-  { objectTypeNl: 'Speeltoestellen', regime: null, odooProductCode: 'PC.HH.48', startPriceProductCode: null, labelNl: 'Speeltoestellen & toebehoren' },
-  { objectTypeNl: 'Ankerlijnen', regime: null, odooProductCode: 'PC.HH.02', startPriceProductCode: 'PC.HH.02.', labelNl: 'Controle ankerlijnen (per ankerpunt) + startprijs' },
-  { objectTypeNl: 'Ankerpunten', regime: null, odooProductCode: 'PC.HH.02', startPriceProductCode: 'PC.HH.02.', labelNl: 'Controle ankerpunten (per ankerpunt) + startprijs' },
-  { objectTypeNl: 'Hoogwerker', regime: null, odooProductCode: 'PC.HH.34', startPriceProductCode: null, labelNl: 'Hoogwerker: periodiek onderzoek' },
-  { objectTypeNl: 'Ladders', regime: null, odooProductCode: 'PC.HH.47', startPriceProductCode: null, labelNl: 'Ladders en stellingen: periodiek onderzoek' },
-  { objectTypeNl: 'Stellingen', regime: null, odooProductCode: 'PC.HH.47', startPriceProductCode: null, labelNl: 'Ladders en stellingen: periodiek onderzoek' },
-  { objectTypeNl: 'Autobrug', regime: null, odooProductCode: 'PC.HH.24', startPriceProductCode: null, labelNl: 'Hefbrug' },
-  { objectTypeNl: 'Heftruck', regime: null, odooProductCode: 'PC.HH.49', startPriceProductCode: null, labelNl: 'Arbeidsmiddelen behandelingstoestel (heftruck)' },
-  { objectTypeNl: 'Graafmachine', regime: null, odooProductCode: 'PC.HH.26', startPriceProductCode: null, labelNl: 'Graafmachine hijsen lasten: Periodiek' },
-  { objectTypeNl: 'Hefplatform', regime: null, odooProductCode: 'PC.HH.28', startPriceProductCode: null, labelNl: 'Transportplatform: periodiek' },
-  { objectTypeNl: 'Werkplaatskraan', regime: null, odooProductCode: 'PC.HH.11.03', startPriceProductCode: null, labelNl: 'Werkplaatskraan: periodiek' },
-  { objectTypeNl: 'Rolbrug', regime: null, odooProductCode: 'PC.HH.11', startPriceProductCode: null, labelNl: 'Rolbrug: Periodiek' },
-  { objectTypeNl: 'Roltrap', regime: null, odooProductCode: 'PC.HH.46', startPriceProductCode: null, labelNl: 'Roltrappen: periodieke keuring' },
+  { objectTypeNl: 'Personenliften', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.04', startPriceProductCode: null, labelNl: 'Personenliften: Periodieke 6 maandelijkse controle', priority: P0 },
+  { objectTypeNl: 'Goederenliften', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.19', startPriceProductCode: null, labelNl: 'Goederenlift niet betreedbaar: Periodiek', priority: P0 },
+  { objectTypeNl: 'Fabrieksliften', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.21', startPriceProductCode: null, labelNl: 'Goederenlift (Fabriekslift) Betreedbaar: Periodiek', priority: P0 },
+  { objectTypeNl: 'Mindervalidenliften', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.72', startPriceProductCode: null, labelNl: 'Autolift: periodieke controle', priority: P0 },
+  { objectTypeNl: 'Hangstelling', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.38', startPriceProductCode: null, labelNl: 'Beweegbare hangstelling: periodiek', priority: P0 },
+  { objectTypeNl: 'Speeltoestellen', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.48', startPriceProductCode: null, labelNl: 'Speeltoestellen & toebehoren', priority: P0 },
+  { objectTypeNl: 'Ankerlijnen', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.02', startPriceProductCode: 'PC.HH.02.', labelNl: 'Controle ankerlijnen (per ankerpunt) + startprijs', priority: P0 },
+  { objectTypeNl: 'Ankerpunten', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.02', startPriceProductCode: 'PC.HH.02.', labelNl: 'Controle ankerpunten (per ankerpunt) + startprijs', priority: P0 },
+  { objectTypeNl: 'Hoogwerker', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.34', startPriceProductCode: null, labelNl: 'Hoogwerker: periodiek onderzoek', priority: P0 },
+  { objectTypeNl: 'Ladders', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.47', startPriceProductCode: null, labelNl: 'Ladders en stellingen: periodiek onderzoek', priority: P0 },
+  { objectTypeNl: 'Stellingen', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.47', startPriceProductCode: null, labelNl: 'Ladders en stellingen: periodiek onderzoek', priority: P0 },
+  { objectTypeNl: 'Autobrug', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.24', startPriceProductCode: null, labelNl: 'Hefbrug', priority: P0 },
+  { objectTypeNl: 'Heftruck', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.49', startPriceProductCode: null, labelNl: 'Arbeidsmiddelen behandelingstoestel (heftruck)', priority: P0 },
+  { objectTypeNl: 'Graafmachine', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.26', startPriceProductCode: null, labelNl: 'Graafmachine hijsen lasten: Periodiek', priority: P0 },
+  { objectTypeNl: 'Hefplatform', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.28', startPriceProductCode: null, labelNl: 'Transportplatform: periodiek', priority: P0 },
+  { objectTypeNl: 'Werkplaatskraan', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.11.03', startPriceProductCode: null, labelNl: 'Werkplaatskraan: periodiek', priority: P0 },
+  { objectTypeNl: 'Rolbrug', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.11', startPriceProductCode: null, labelNl: 'Rolbrug: Periodiek', priority: P0 },
+  { objectTypeNl: 'Roltrap', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.46', startPriceProductCode: null, labelNl: 'Roltrappen: periodieke keuring', priority: P0 },
 
   // === Milieu (original) ===
-  { objectTypeNl: 'Stookolietank ondergronds', regime: null, odooProductCode: 'PC.STK.02', startPriceProductCode: null, labelNl: 'Stookolieattest ondergronds' },
-  { objectTypeNl: 'Stookolietank bovengronds', regime: null, odooProductCode: 'PC.STK.01', startPriceProductCode: null, labelNl: 'Stookolieattest bovengronds' },
-  { objectTypeNl: 'Boven- en ondergrondse houders', regime: null, odooProductCode: 'PC.MVB.03', startPriceProductCode: null, labelNl: 'Periodiek onderzoek bovengrondse houder (VL)' },
-  { objectTypeNl: 'Persluchthouders', regime: null, odooProductCode: 'PC.MP.06', startPriceProductCode: null, labelNl: 'Periodiek onderzoek persluchthouder VL' },
+  { objectTypeNl: 'Stookolietank ondergronds', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.STK.02', startPriceProductCode: null, labelNl: 'Stookolieattest ondergronds', priority: P0 },
+  { objectTypeNl: 'Stookolietank bovengronds', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.STK.01', startPriceProductCode: null, labelNl: 'Stookolieattest bovengronds', priority: P0 },
+  { objectTypeNl: 'Boven- en ondergrondse houders', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.MVB.03', startPriceProductCode: null, labelNl: 'Periodiek onderzoek bovengrondse houder (VL)', priority: P0 },
+  { objectTypeNl: 'Persluchthouders', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.MP.06', startPriceProductCode: null, labelNl: 'Periodiek onderzoek persluchthouder VL', priority: P0 },
 
-  // === NEW: Kranen ===
-  { objectTypeNl: 'Autolaadkraan', regime: null, odooProductCode: 'PC.HH.53', startPriceProductCode: null, labelNl: 'Autolaadkraan: Periodiek' },
-  { objectTypeNl: 'Bouwkraan', regime: null, odooProductCode: 'PC.HH.17', startPriceProductCode: null, labelNl: 'Bouwkraan: periodiek' },
-  { objectTypeNl: 'Dakwerkerskraan', regime: null, odooProductCode: 'PC.HH.13.3', startPriceProductCode: null, labelNl: 'Dakwerkerskraan: periodiek' },
-  { objectTypeNl: 'Galgkraan', regime: null, odooProductCode: 'PC.HH.11.5', startPriceProductCode: null, labelNl: 'Galgkraan: Periodiek' },
-  { objectTypeNl: 'Havenkraan', regime: null, odooProductCode: 'PC.HH.13.1', startPriceProductCode: null, labelNl: 'Havenkraan: periodiek' },
-  { objectTypeNl: 'Mobiele kraan', regime: null, odooProductCode: 'PC.HH.13.05', startPriceProductCode: null, labelNl: 'Mobiele kraan tot 50 ton: Periodiek' },
-  { objectTypeNl: 'Portaalkraan', regime: null, odooProductCode: 'PC.HH.11.1', startPriceProductCode: null, labelNl: 'Portaalkraan: periodiek' },
-  { objectTypeNl: 'Spoorwegkraan', regime: null, odooProductCode: 'PC.HH.13.2', startPriceProductCode: null, labelNl: 'Spoorwegkraan: periodiek' },
-  { objectTypeNl: 'Torenkraan', regime: null, odooProductCode: 'PC.HH.40', startPriceProductCode: null, labelNl: 'Torenkraan: periodiek' },
-  { objectTypeNl: 'Zwenkkraan', regime: null, odooProductCode: 'PC.HH.11.03.', startPriceProductCode: null, labelNl: 'Zwenkkraan: Periodiek' },
+  // === Kranen ===
+  { objectTypeNl: 'Autolaadkraan', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.53', startPriceProductCode: null, labelNl: 'Autolaadkraan: Periodiek', priority: P0 },
+  { objectTypeNl: 'Bouwkraan', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.17', startPriceProductCode: null, labelNl: 'Bouwkraan: periodiek', priority: P0 },
+  { objectTypeNl: 'Dakwerkerskraan', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.13.3', startPriceProductCode: null, labelNl: 'Dakwerkerskraan: periodiek', priority: P0 },
+  { objectTypeNl: 'Galgkraan', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.11.5', startPriceProductCode: null, labelNl: 'Galgkraan: Periodiek', priority: P0 },
+  { objectTypeNl: 'Havenkraan', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.13.1', startPriceProductCode: null, labelNl: 'Havenkraan: periodiek', priority: P0 },
+  { objectTypeNl: 'Mobiele kraan', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.13.05', startPriceProductCode: null, labelNl: 'Mobiele kraan tot 50 ton: Periodiek', priority: P0 },
+  { objectTypeNl: 'Portaalkraan', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.11.1', startPriceProductCode: null, labelNl: 'Portaalkraan: periodiek', priority: P0 },
+  { objectTypeNl: 'Spoorwegkraan', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.13.2', startPriceProductCode: null, labelNl: 'Spoorwegkraan: periodiek', priority: P0 },
+  { objectTypeNl: 'Torenkraan', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.40', startPriceProductCode: null, labelNl: 'Torenkraan: periodiek', priority: P0 },
+  { objectTypeNl: 'Zwenkkraan', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.11.03.', startPriceProductCode: null, labelNl: 'Zwenkkraan: Periodiek', priority: P0 },
 
-  // === NEW: Hef en Hijs – Overige ===
-  { objectTypeNl: 'Elektrische takels', regime: null, odooProductCode: 'PC.HH.11.02', startPriceProductCode: null, labelNl: 'Elektrische takels: Periodiek' },
-  { objectTypeNl: 'Enkelspoor', regime: null, odooProductCode: 'PC.HH.11.4', startPriceProductCode: null, labelNl: 'Enkelspoor: periodiek' },
-  { objectTypeNl: 'Heftafel', regime: null, odooProductCode: 'PC.HH.30', startPriceProductCode: null, labelNl: 'Heftafel' },
-  { objectTypeNl: 'Hijstoebehoren', regime: null, odooProductCode: 'PC.HH.09', startPriceProductCode: null, labelNl: 'Hijstoebehoren klein: periodiek onderzoek' },
-  { objectTypeNl: 'Laadklep', regime: null, odooProductCode: 'PC.HH.32', startPriceProductCode: null, labelNl: 'Laadklep: periodiek' },
-  { objectTypeNl: 'Materiaallift', regime: null, odooProductCode: 'PC.HH.23', startPriceProductCode: null, labelNl: 'Materiaallift / Ladderlift: Periodiek' },
-  { objectTypeNl: 'Metalen gordijn', regime: null, odooProductCode: 'PC.HH.44', startPriceProductCode: null, labelNl: 'Metalen gordijn: periodiek' },
-  { objectTypeNl: 'Manuele takel', regime: null, odooProductCode: 'PC.MVB.01', startPriceProductCode: null, labelNl: 'Takel: manueel' },
-  { objectTypeNl: 'Personenbouwlift', regime: null, odooProductCode: 'PC.HH.36', startPriceProductCode: null, labelNl: 'Personenbouwlift: periodiek' },
-  { objectTypeNl: 'Transportplatform', regime: null, odooProductCode: 'PC.HH.28', startPriceProductCode: null, labelNl: 'Transportplatform: periodiek' },
-  { objectTypeNl: 'Verreiker', regime: null, odooProductCode: 'PC.HH.61', startPriceProductCode: null, labelNl: 'Verreiker: Periodiek' },
-  { objectTypeNl: 'PBM valhoogte', regime: null, odooProductCode: 'PC.HH.01', startPriceProductCode: null, labelNl: 'PBM valhoogte: periodieke controle' },
-  { objectTypeNl: 'Robrug zwaar', regime: null, odooProductCode: 'PC.HH.11.6', startPriceProductCode: null, labelNl: 'Robrug zwaar: periodiek' },
+  // === Hef en Hijs – Overige ===
+  { objectTypeNl: 'Elektrische takels', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.11.02', startPriceProductCode: null, labelNl: 'Elektrische takels: Periodiek', priority: P0 },
+  { objectTypeNl: 'Enkelspoor', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.11.4', startPriceProductCode: null, labelNl: 'Enkelspoor: periodiek', priority: P0 },
+  { objectTypeNl: 'Heftafel', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.30', startPriceProductCode: null, labelNl: 'Heftafel', priority: P0 },
+  { objectTypeNl: 'Hijstoebehoren', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.09', startPriceProductCode: null, labelNl: 'Hijstoebehoren klein: periodiek onderzoek', priority: P0 },
+  { objectTypeNl: 'Laadklep', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.32', startPriceProductCode: null, labelNl: 'Laadklep: periodiek', priority: P0 },
+  { objectTypeNl: 'Materiaallift', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.23', startPriceProductCode: null, labelNl: 'Materiaallift / Ladderlift: Periodiek', priority: P0 },
+  { objectTypeNl: 'Metalen gordijn', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.44', startPriceProductCode: null, labelNl: 'Metalen gordijn: periodiek', priority: P0 },
+  { objectTypeNl: 'Manuele takel', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.MVB.01', startPriceProductCode: null, labelNl: 'Takel: manueel', priority: P0 },
+  { objectTypeNl: 'Personenbouwlift', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.36', startPriceProductCode: null, labelNl: 'Personenbouwlift: periodiek', priority: P0 },
+  { objectTypeNl: 'Transportplatform', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.28', startPriceProductCode: null, labelNl: 'Transportplatform: periodiek', priority: P0 },
+  { objectTypeNl: 'Verreiker', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.61', startPriceProductCode: null, labelNl: 'Verreiker: Periodiek', priority: P0 },
+  { objectTypeNl: 'PBM valhoogte', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.01', startPriceProductCode: null, labelNl: 'PBM valhoogte: periodieke controle', priority: P0 },
+  { objectTypeNl: 'Robrug zwaar', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.11.6', startPriceProductCode: null, labelNl: 'Robrug zwaar: periodiek', priority: P0 },
 
-  // === NEW: Elektriciteit – Specifiek ===
-  { objectTypeNl: 'Laadpaal', regime: null, odooProductCode: 'PC.EK4.02', startPriceProductCode: 'PC.EK6.04.', labelNl: 'EK laadpaal (per laadpaal) + startprijs' },
-  { objectTypeNl: 'Neon-installatie', regime: null, odooProductCode: 'PC.EK2.17', startPriceProductCode: null, labelNl: 'EK neon-installatie: periodieke controle' },
-  { objectTypeNl: 'Noodgroep', regime: null, odooProductCode: 'PC.EK8.01', startPriceProductCode: 'PC.EK8.01.', labelNl: 'Noodgroep visuele controle (per noodgroep) + startprijs' },
-  { objectTypeNl: 'Werfinstallatie', regime: null, odooProductCode: 'PC.EK6.05', startPriceProductCode: 'PC.EK6.01', labelNl: 'EK Stroomgroep/Werfkast (per unit) + startprijs werfinstallatie' },
-  { objectTypeNl: 'Elektrische buiteninstallatie', regime: null, odooProductCode: 'PC.EK2.42', startPriceProductCode: null, labelNl: 'EK buiteninstallatie' },
-  { objectTypeNl: 'Warmtepomp', regime: null, odooProductCode: 'PC.RQCW01.01', startPriceProductCode: null, labelNl: 'Rescert QC Warmtepomp' },
-  { objectTypeNl: 'Aardverbinding', regime: null, odooProductCode: 'PC.EK2.46', startPriceProductCode: 'PC.EK2.46.', labelNl: 'Meting spreidingsweerstand aardverbinding (per meting) + startprijs' },
+  // === Elektriciteit – Specifiek ===
+  { objectTypeNl: 'Laadpaal', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.EK4.02', startPriceProductCode: 'PC.EK6.04.', labelNl: 'EK laadpaal (per laadpaal) + startprijs', priority: P0 },
+  { objectTypeNl: 'Neon-installatie', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.EK2.17', startPriceProductCode: null, labelNl: 'EK neon-installatie: periodieke controle', priority: P0 },
+  { objectTypeNl: 'Noodgroep', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.EK8.01', startPriceProductCode: 'PC.EK8.01.', labelNl: 'Noodgroep visuele controle (per noodgroep) + startprijs', priority: P0 },
+  { objectTypeNl: 'Werfinstallatie', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.EK6.05', startPriceProductCode: 'PC.EK6.01', labelNl: 'EK Stroomgroep/Werfkast (per unit) + startprijs werfinstallatie', priority: P0 },
+  { objectTypeNl: 'Elektrische buiteninstallatie', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.EK2.42', startPriceProductCode: null, labelNl: 'EK buiteninstallatie', priority: P0 },
+  { objectTypeNl: 'Warmtepomp', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.RQCW01.01', startPriceProductCode: null, labelNl: 'Rescert QC Warmtepomp', priority: P0 },
+  { objectTypeNl: 'Aardverbinding', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.EK2.46', startPriceProductCode: 'PC.EK2.46.', labelNl: 'Meting spreidingsweerstand aardverbinding (per meting) + startprijs', priority: P0 },
 
-  // === NEW: Milieu / Overige ===
-  { objectTypeNl: 'Rioolkeuring', regime: null, odooProductCode: 'PC.RKV.03', startPriceProductCode: 'PC.RKV.02', labelNl: 'NH rioolkeuring + startprijs' },
-  { objectTypeNl: 'Zonnebank', regime: null, odooProductCode: 'PC.UVA.01', startPriceProductCode: 'PC.UVA.01.', labelNl: 'Periodieke controle zonnebank (per bank) + startprijs' },
-  { objectTypeNl: 'Kermisattractie type A', regime: null, odooProductCode: 'PC.HH.55.02', startPriceProductCode: null, labelNl: 'Kermisattractie type A: jaarlijkse onderhoudsinspectie' },
-  { objectTypeNl: 'Kermisattractie type B', regime: null, odooProductCode: 'PC.HH.54.01', startPriceProductCode: null, labelNl: 'Kermisattractie type B: jaarlijkse onderhoudsinspectie' },
-  { objectTypeNl: 'Attractietoestel', regime: null, odooProductCode: 'PC.HH.57', startPriceProductCode: null, labelNl: 'Periodiek onderzoek attractietoestel (groot)' },
-  { objectTypeNl: 'Foodtruck', regime: null, odooProductCode: 'PC.FT.01', startPriceProductCode: null, labelNl: 'Foodtruck - marktwagen' },
-  { objectTypeNl: 'Voetbalstadion', regime: null, odooProductCode: 'PC.HH.13', startPriceProductCode: null, labelNl: 'Voetbalstadia visueel onderzoek' },
-  { objectTypeNl: 'Lastoestel', regime: null, odooProductCode: 'PC.LAS1', startPriceProductCode: null, labelNl: 'Inspectie lastoestel' },
-  { objectTypeNl: 'VCA arbeidsmiddelen', regime: null, odooProductCode: 'PC.VCA.01', startPriceProductCode: null, labelNl: 'Nazicht arbeidsmiddelen (VCA)' },
+  // === Milieu / Overige ===
+  { objectTypeNl: 'Rioolkeuring', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.RKV.03', startPriceProductCode: 'PC.RKV.02', labelNl: 'NH rioolkeuring + startprijs', priority: P0 },
+  { objectTypeNl: 'Zonnebank', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.UVA.01', startPriceProductCode: 'PC.UVA.01.', labelNl: 'Periodieke controle zonnebank (per bank) + startprijs', priority: P0 },
+  { objectTypeNl: 'Kermisattractie type A', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.55.02', startPriceProductCode: null, labelNl: 'Kermisattractie type A: jaarlijkse onderhoudsinspectie', priority: P0 },
+  { objectTypeNl: 'Kermisattractie type B', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.54.01', startPriceProductCode: null, labelNl: 'Kermisattractie type B: jaarlijkse onderhoudsinspectie', priority: P0 },
+  { objectTypeNl: 'Attractietoestel', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.57', startPriceProductCode: null, labelNl: 'Periodiek onderzoek attractietoestel (groot)', priority: P0 },
+  { objectTypeNl: 'Foodtruck', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.FT.01', startPriceProductCode: null, labelNl: 'Foodtruck - marktwagen', priority: P0 },
+  { objectTypeNl: 'Voetbalstadion', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.HH.13', startPriceProductCode: null, labelNl: 'Voetbalstadia visueel onderzoek', priority: P0 },
+  { objectTypeNl: 'Lastoestel', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.LAS1', startPriceProductCode: null, labelNl: 'Inspectie lastoestel', priority: P0 },
+  { objectTypeNl: 'VCA arbeidsmiddelen', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.VCA.01', startPriceProductCode: null, labelNl: 'Nazicht arbeidsmiddelen (VCA)', priority: P0 },
 
   // === Simafire mappings ===
-  { objectTypeNl: 'Brandblussers', regime: null, odooProductCode: 'OBB.01', startPriceProductCode: null, labelNl: 'Onderhoud brandblusser (jaarlijks)' },
-  { objectTypeNl: 'Brandhaspels', regime: null, odooProductCode: 'OBH.01', startPriceProductCode: null, labelNl: 'Onderhoud brandhaspel (jaarlijks)' },
-  { objectTypeNl: 'Hydranten', regime: null, odooProductCode: 'OH.01', startPriceProductCode: null, labelNl: 'Onderhoud bovengrondse hydrant' },
-  { objectTypeNl: 'Dampkapblusinstallatie', regime: null, odooProductCode: 'OFL.01', startPriceProductCode: null, labelNl: 'Onderhoud automatische blussysteem (jaarlijks)' },
+  { objectTypeNl: 'Brandblussers', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'OBB.01', startPriceProductCode: null, labelNl: 'Onderhoud brandblusser (jaarlijks)', priority: P0 },
+  { objectTypeNl: 'Brandhaspels', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'OBH.01', startPriceProductCode: null, labelNl: 'Onderhoud brandhaspel (jaarlijks)', priority: P0 },
+  { objectTypeNl: 'Hydranten', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'OH.01', startPriceProductCode: null, labelNl: 'Onderhoud bovengrondse hydrant', priority: P0 },
+  { objectTypeNl: 'Dampkapblusinstallatie', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'OFL.01', startPriceProductCode: null, labelNl: 'Onderhoud automatische blussysteem (jaarlijks)', priority: P0 },
 
   // === Firesecure mappings ===
-  { objectTypeNl: 'Brandwerende deur', regime: null, odooProductCode: 'FS.BD.01', startPriceProductCode: null, labelNl: 'Controle brand- en nooddeuren' },
+  { objectTypeNl: 'Brandwerende deur', regime: null, region: R, minQuantity: Q, maxQuantity: Q, odooProductCode: 'FS.BD.01', startPriceProductCode: null, labelNl: 'Controle brand- en nooddeuren', priority: P0 },
+
+  // === Region-specific examples: Persluchthouders ===
+  { objectTypeNl: 'Persluchthouders', regime: null, region: 'wallonie', minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.MP.09', startPriceProductCode: null, labelNl: 'Periodieke inspectie persluchttank (Wallonië)', priority: 10 },
+  { objectTypeNl: 'Persluchthouders', regime: null, region: 'brussel', minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.MP.03', startPriceProductCode: null, labelNl: 'Periodiek onderzoek persluchthouder BHG', priority: 10 },
+
+  // === Region-specific: Boven- en ondergrondse houders (Wallonië) ===
+  { objectTypeNl: 'Boven- en ondergrondse houders', regime: null, region: 'wallonie', minQuantity: Q, maxQuantity: Q, odooProductCode: 'PC.MGB.06', startPriceProductCode: null, labelNl: 'Periodiek onderzoek bovengrondse houder (WAL)', priority: 10 },
 ];
 
 async function main() {
@@ -546,7 +561,7 @@ async function main() {
   await prisma.serviceCodeMapping.deleteMany({});
   let mapCount = 0;
   for (const m of serviceCodeMappings) {
-    const ot = await prisma.objectType.findUnique({ where: { nameNl: m.objectTypeNl } });
+    const ot = await prisma.objectType.findFirst({ where: { nameNl: m.objectTypeNl, clientName: null } });
     if (!ot) {
       console.warn(`  WARN: ObjectType "${m.objectTypeNl}" not found, skipping mapping`);
       continue;
@@ -555,9 +570,13 @@ async function main() {
       data: {
         objectTypeId: ot.id,
         regime: m.regime,
+        region: m.region,
+        minQuantity: m.minQuantity,
+        maxQuantity: m.maxQuantity,
         odooProductCode: m.odooProductCode,
         startPriceProductCode: m.startPriceProductCode,
         labelNl: m.labelNl,
+        priority: m.priority,
         version: 1,
       },
     });

@@ -5,6 +5,7 @@ import SessionList from './features/sessions/SessionList';
 import CreateSession from './features/sessions/CreateSession';
 import SessionDetail from './features/sessions/SessionDetail';
 import ScanFlow from './features/scan/ScanFlow';
+import MappingRulesAdmin from './features/admin/MappingRulesAdmin';
 import OfflineIndicator from './shared/components/OfflineIndicator';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -48,6 +49,10 @@ export default function App() {
         <Route
           path="/sessions/:id/scan"
           element={<ProtectedRoute><ScanFlow /></ProtectedRoute>}
+        />
+        <Route
+          path="/admin/mappings"
+          element={<ProtectedRoute><MappingRulesAdmin /></ProtectedRoute>}
         />
         <Route path="*" element={<Navigate to="/sessions" replace />} />
       </Routes>

@@ -32,12 +32,20 @@ export default function SessionList() {
         </div>
       </div>
 
-      <button
-        onClick={() => navigate('/sessions/new')}
-        className="mb-6 px-4 py-2 bg-blue-700 text-white font-medium rounded-md hover:bg-blue-800"
-      >
-        + Nieuwe sessie
-      </button>
+      <div className="flex gap-3 mb-6">
+        <button
+          onClick={() => navigate('/sessions/new')}
+          className="px-4 py-2 bg-blue-700 text-white font-medium rounded-md hover:bg-blue-800"
+        >
+          + Nieuwe sessie
+        </button>
+        <button
+          onClick={() => navigate('/admin/mappings')}
+          className="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-md hover:bg-gray-300"
+        >
+          Mapping regels
+        </button>
+      </div>
 
       {isLoading && <p className="text-gray-500">Laden...</p>}
       {isError && <p className="text-red-600">Fout bij laden sessies</p>}
