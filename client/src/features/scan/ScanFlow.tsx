@@ -3,14 +3,14 @@ import { useParams, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import CameraView from './CameraView';
 import ClassificationResult from './ClassificationResult';
-import { useUploadScan, useConfirmScan, useCreateCustomObjectType, useCreateSubassets } from './use-scan';
+import { useUploadScan, useConfirmScan, useCreateCustomObjectType, useCreateSubassets, useUploadLabelPhoto, useExtractLabelData } from './use-scan';
 import { useSession, useCreateLocation, useCreateFloor, usePatchSessionPrompts } from '../sessions/use-sessions';
 import { apiClient } from '../../lib/api-client';
 import type { LocationItem } from '../sessions/use-sessions';
 import { usePromptCatalog, type PromptFieldDef } from '../prompts/use-prompt-catalog';
 import { DynamicPromptFields } from '../prompts/DynamicPromptFields';
 
-type FlowStep = 'pick-floor' | 'camera' | 'uploading' | 'classifying' | 'confirm' | 'subassets';
+type FlowStep = 'pick-floor' | 'camera' | 'uploading' | 'classifying' | 'confirm' | 'subassets' | 'label-photo';
 
 interface ChildObjectType {
   id: string;
@@ -44,6 +44,8 @@ export default function ScanFlow() {
   const confirmScan = useConfirmScan();
   const createCustomType = useCreateCustomObjectType();
   const createSubassets = useCreateSubassets(sessionId!);
+  const uploadLabel = useUploadLabelPhoto(sessionId!);
+  const extractLabel = useExtractLabelData();
   const patchPrompts = usePatchSessionPrompts(sessionId!);
   const {
     data: catalog,
@@ -173,7 +175,14 @@ export default function ScanFlow() {
     setStep('confirm');
   }
 
-  function resetAfterConfirm() {
+  const [labelPhotoBlob, setLabelPhotoBlob] = useState<Blob | null>(null);
+  const [extracting, setExtracting] = useState(false);
+
+  function goToLabelPhoto() {
+    setStep('label-photo');
+  }
+
+  function resetForNextScan() {
     setScanState((prev) => ({
       ...prev,
       photoBlob: null,
@@ -187,7 +196,13 @@ export default function ScanFlow() {
     setOnScanValues({});
     setPendingSubassets(null);
     setSubassetQuantities({});
+    setLabelPhotoBlob(null);
+    setExtracting(false);
     setStep('camera');
+  }
+
+  function resetAfterConfirm() {
+    goToLabelPhoto();
   }
 
   function runConfirm(typeId: string, onScanPromptAnswers?: Record<string, unknown>) {
@@ -422,6 +437,97 @@ export default function ScanFlow() {
               {createSubassets.isPending ? 'Opslaan...' : 'Opslaan'}
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'label-photo') {
+    const scanId = scanState.scanRecordId;
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-4">
+          <h2 className="text-lg font-bold text-gray-900 mb-2">Keuringslabel foto</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Optioneel: maak een foto van het keuringslabel/sticker. De keuringsdata wordt automatisch uitgelezen.
+          </p>
+
+          {!labelPhotoBlob ? (
+            <div className="space-y-3">
+              <label className="block w-full cursor-pointer">
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                  <svg className="mx-auto h-10 w-10 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="text-sm text-gray-600">Tik om een foto te maken</span>
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) setLabelPhotoBlob(file);
+                  }}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={resetForNextScan}
+                className="w-full py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              >
+                Overslaan
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <img
+                src={URL.createObjectURL(labelPhotoBlob)}
+                alt="Label foto"
+                className="w-full max-h-48 object-contain rounded-lg border border-gray-200"
+              />
+              {extracting && (
+                <div className="flex items-center gap-2 text-sm text-blue-600">
+                  <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full" />
+                  Keuringsdata uitlezen...
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setLabelPhotoBlob(null)}
+                  className="flex-1 py-2 border border-gray-300 rounded-md text-gray-700"
+                >
+                  Opnieuw
+                </button>
+                <button
+                  type="button"
+                  disabled={uploadLabel.isPending || extracting}
+                  onClick={async () => {
+                    if (!scanId) return;
+                    try {
+                      await uploadLabel.mutateAsync({ scanId, photoBlob: labelPhotoBlob });
+                      setExtracting(true);
+                      try {
+                        await extractLabel.mutateAsync(scanId);
+                      } catch {
+                        // extraction is best-effort
+                      }
+                      setExtracting(false);
+                      resetForNextScan();
+                    } catch {
+                      // upload failed, stay on page
+                    }
+                  }}
+                  className="flex-1 py-2 bg-green-600 text-white font-medium rounded-md disabled:opacity-50"
+                >
+                  {uploadLabel.isPending ? 'Uploaden...' : extracting ? 'Uitlezen...' : 'Opslaan & verder'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );

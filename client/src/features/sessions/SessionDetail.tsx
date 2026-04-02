@@ -12,7 +12,7 @@ import {
   formatAddress,
 } from './use-sessions';
 import type { LocationItem, FloorItem, ScanRecordItem } from './use-sessions';
-import { useUpdateQuantity, useManualAdd, useDeleteScan, usePatchScan, useCreateCustomObjectType, useConfirmScan } from '../scan/use-scan';
+import { useUpdateQuantity, useManualAdd, useDeleteScan, usePatchScan, useCreateCustomObjectType, useConfirmScan, useUpdateInspectionData, useUploadLabelPhoto, useExtractLabelData } from '../scan/use-scan';
 import { apiClient } from '../../lib/api-client';
 import PhotoThumbnail from '../../shared/components/PhotoThumbnail';
 import ConfirmDialog from '../../shared/components/ConfirmDialog';
@@ -308,6 +308,9 @@ function FloorSection({
   const patchScan = usePatchScan(sessionId);
   const createCustomType = useCreateCustomObjectType();
   const confirmScan = useConfirmScan();
+  const updateInspection = useUpdateInspectionData(sessionId);
+  const uploadLabel = useUploadLabelPhoto(sessionId);
+  const extractLabel = useExtractLabelData();
 
   const [collapsed, setCollapsed] = useState(false);
   const [parentPickerFor, setParentPickerFor] = useState<string | null>(null);
@@ -325,6 +328,63 @@ function FloorSection({
   const [classifyScanId, setClassifyScanId] = useState<string | null>(null);
   const [showInlineCreate, setShowInlineCreate] = useState(false);
   const [inlineCustomName, setInlineCustomName] = useState('');
+  const [inspectionScanId, setInspectionScanId] = useState<string | null>(null);
+  const [inspectionForm, setInspectionForm] = useState<{
+    lastInspectionDate: string;
+    certifiedUntilDate: string;
+    lbLmbPercentage: string;
+    lbLmbTestDate: string;
+    inspectionComment: string;
+    externalInspectionNumber: string;
+  }>({
+    lastInspectionDate: '',
+    certifiedUntilDate: '',
+    lbLmbPercentage: '',
+    lbLmbTestDate: '',
+    inspectionComment: '',
+    externalInspectionNumber: '',
+  });
+
+  function openInspection(record: typeof floor.scanRecords[0]) {
+    setInspectionScanId(record.id);
+    setInspectionForm({
+      lastInspectionDate: record.lastInspectionDate ? record.lastInspectionDate.split('T')[0] : '',
+      certifiedUntilDate: record.certifiedUntilDate ? record.certifiedUntilDate.split('T')[0] : '',
+      lbLmbPercentage: record.lbLmbPercentage ?? '',
+      lbLmbTestDate: record.lbLmbTestDate ? record.lbLmbTestDate.split('T')[0] : '',
+      inspectionComment: record.inspectionComment ?? '',
+      externalInspectionNumber: record.externalInspectionNumber ?? '',
+    });
+  }
+
+  function saveInspection() {
+    if (!inspectionScanId) return;
+    updateInspection.mutate(
+      {
+        scanId: inspectionScanId,
+        lastInspectionDate: inspectionForm.lastInspectionDate || null,
+        certifiedUntilDate: inspectionForm.certifiedUntilDate || null,
+        lbLmbPercentage: inspectionForm.lbLmbPercentage || null,
+        lbLmbTestDate: inspectionForm.lbLmbTestDate || null,
+        inspectionComment: inspectionForm.inspectionComment || null,
+        externalInspectionNumber: inspectionForm.externalInspectionNumber || null,
+      },
+      { onSuccess: () => setInspectionScanId(null) },
+    );
+  }
+
+  async function handleLabelUpload(scanId: string, file: File) {
+    try {
+      await uploadLabel.mutateAsync({ scanId, photoBlob: file });
+      try {
+        await extractLabel.mutateAsync(scanId);
+      } catch {
+        // extraction best-effort
+      }
+    } catch {
+      // upload failed
+    }
+  }
 
   const { data: objectTypes } = useQuery({
     queryKey: ['object-types-all', clientName],
@@ -497,11 +557,25 @@ function FloorSection({
                       {childScans.length} subasset{childScans.length > 1 ? 's' : ''}
                     </span>
                   )}
+                  {record.lastInspectionDate && (
+                    <span className="ml-2 text-emerald-600">Keuring ✓</span>
+                  )}
+                  {record.labelPhotoPath && !record.lastInspectionDate && (
+                    <span className="ml-2 text-amber-600">Label ✓</span>
+                  )}
                 </p>
               </div>
               {isActive && record.status === 'confirmed' ? (
                 <div className="flex flex-col items-end gap-1 shrink-0">
                   <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => openInspection(record)}
+                      className="text-xs text-emerald-600 hover:text-emerald-700 px-1"
+                      title="Keuringsdata"
+                    >
+                      Keuring
+                    </button>
                     <button
                       type="button"
                       onClick={() => setEditTypeScanId(record.id)}
@@ -877,6 +951,133 @@ function FloorSection({
           </div>
         );
       })()}
+
+      {/* Inspection data modal */}
+      {inspectionScanId && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[80vh] overflow-y-auto p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900">Keuringsdata</h3>
+              <button onClick={() => setInspectionScanId(null)} className="text-gray-400 hover:text-gray-600 text-lg">&times;</button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block">
+                <span className="text-xs font-medium text-gray-600">Label foto</span>
+                <div className="mt-1">
+                  {(() => {
+                    const rec = floor.scanRecords.find((r) => r.id === inspectionScanId);
+                    if (rec?.labelPhotoPath) {
+                      return (
+                        <div className="flex items-center gap-2">
+                          <PhotoThumbnail photoPath={rec.labelPhotoPath} size={60} />
+                          <span className="text-xs text-green-600">Label foto aanwezig</span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <label className="block cursor-pointer">
+                        <div className="border border-dashed border-gray-300 rounded-md px-3 py-2 text-center text-xs text-gray-500 hover:border-blue-400 transition-colors">
+                          {uploadLabel.isPending || extractLabel.isPending ? 'Verwerken...' : 'Klik om label foto te uploaden'}
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleLabelUpload(inspectionScanId!, file);
+                          }}
+                        />
+                      </label>
+                    );
+                  })()}
+                </div>
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-medium text-gray-600">Laatste keuringsdatum</span>
+                <input
+                  type="date"
+                  value={inspectionForm.lastInspectionDate}
+                  onChange={(e) => setInspectionForm((p) => ({ ...p, lastInspectionDate: e.target.value }))}
+                  className="mt-1 w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-medium text-gray-600">Gekeurd tot datum</span>
+                <input
+                  type="date"
+                  value={inspectionForm.certifiedUntilDate}
+                  onChange={(e) => setInspectionForm((p) => ({ ...p, certifiedUntilDate: e.target.value }))}
+                  className="mt-1 w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-medium text-gray-600">LB/LMB %</span>
+                <input
+                  type="text"
+                  value={inspectionForm.lbLmbPercentage}
+                  onChange={(e) => setInspectionForm((p) => ({ ...p, lbLmbPercentage: e.target.value }))}
+                  placeholder="bv. 85%"
+                  className="mt-1 w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-medium text-gray-600">Datum LB/LMB test</span>
+                <input
+                  type="date"
+                  value={inspectionForm.lbLmbTestDate}
+                  onChange={(e) => setInspectionForm((p) => ({ ...p, lbLmbTestDate: e.target.value }))}
+                  className="mt-1 w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-medium text-gray-600">Commentaar keuring</span>
+                <textarea
+                  value={inspectionForm.inspectionComment}
+                  onChange={(e) => setInspectionForm((p) => ({ ...p, inspectionComment: e.target.value }))}
+                  rows={2}
+                  className="mt-1 w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-medium text-gray-600">Ext. keuringsnummer</span>
+                <input
+                  type="text"
+                  value={inspectionForm.externalInspectionNumber}
+                  onChange={(e) => setInspectionForm((p) => ({ ...p, externalInspectionNumber: e.target.value }))}
+                  className="mt-1 w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </label>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setInspectionScanId(null)}
+                className="flex-1 py-2 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              >
+                Annuleren
+              </button>
+              <button
+                type="button"
+                onClick={saveInspection}
+                disabled={updateInspection.isPending}
+                className="flex-1 py-2 text-sm bg-emerald-600 text-white font-medium rounded-md hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {updateInspection.isPending ? 'Opslaan...' : 'Opslaan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete record confirmation */}
       <ConfirmDialog

@@ -208,6 +208,90 @@ export function useCreateSubassets(sessionId: string) {
   });
 }
 
+export function useUploadLabelPhoto(sessionId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ scanId, photoBlob }: { scanId: string; photoBlob: Blob }) => {
+      const formData = new FormData();
+      formData.append('photo', photoBlob, 'label.jpg');
+      const token = localStorage.getItem('inventarispoq_auth');
+      const parsed = token ? JSON.parse(token) : null;
+      const res = await fetch(`/api/scans/${scanId}/label-photo`, {
+        method: 'POST',
+        headers: parsed?.token ? { Authorization: `Bearer ${parsed.token}` } : {},
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message ?? 'Label upload failed');
+      }
+      return (await res.json()).data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sessions', sessionId] });
+    },
+  });
+}
+
+export function useExtractLabelData() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (scanId: string) => {
+      const token = localStorage.getItem('inventarispoq_auth');
+      const parsed = token ? JSON.parse(token) : null;
+      const res = await fetch(`/api/scans/${scanId}/label-photo/extract`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(parsed?.token ? { Authorization: `Bearer ${parsed.token}` } : {}),
+        },
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message ?? 'Extractie mislukt');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sessions'] });
+    },
+  });
+}
+
+export function useUpdateInspectionData(sessionId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ scanId, ...data }: {
+      scanId: string;
+      lastInspectionDate?: string | null;
+      certifiedUntilDate?: string | null;
+      lbLmbPercentage?: string | null;
+      lbLmbTestDate?: string | null;
+      inspectionComment?: string | null;
+      externalInspectionNumber?: string | null;
+    }) => {
+      const token = localStorage.getItem('inventarispoq_auth');
+      const parsed = token ? JSON.parse(token) : null;
+      const res = await fetch(`/api/scans/${scanId}/inspection`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(parsed?.token ? { Authorization: `Bearer ${parsed.token}` } : {}),
+        },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message ?? 'Update mislukt');
+      }
+      return (await res.json()).data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sessions', sessionId] });
+    },
+  });
+}
+
 export function useCreateCustomObjectType() {
   const qc = useQueryClient();
   return useMutation({

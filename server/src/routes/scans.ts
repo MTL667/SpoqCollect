@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma.js';
 import { upload } from '../middleware/upload.js';
 import { movePhoto, getPhotoAbsolutePath } from '../services/storage.js';
 import { classifyPhoto } from '../services/ai-classifier.js';
+import { extractInspectionData } from '../services/label-extractor';
 import { logger } from '../lib/logger.js';
 
 export const scansRouter = Router();
@@ -274,6 +275,100 @@ scansRouter.post('/:id/subassets', async (req: Request, res: Response, next: Nex
     }
 
     res.status(201).json({ data: created });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** Upload a label photo for an existing scan and optionally run AI extraction. */
+scansRouter.post('/:id/label-photo', upload.single('photo'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const scanId = req.params.id as string;
+    const scan = await prisma.scanRecord.findUnique({ where: { id: scanId } });
+
+    if (!scan) { res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Scan not found' } }); return; }
+    if (scan.inspectorId !== req.inspector!.inspectorId) { res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not your scan' } }); return; }
+    if (!req.file) { res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Photo is required' } }); return; }
+
+    const labelPhotoPath = movePhoto(req.file.path, scan.sessionId, `${scanId}-label`);
+
+    const updated = await prisma.scanRecord.update({
+      where: { id: scanId },
+      data: { labelPhotoPath },
+      include: { confirmedType: true },
+    });
+
+    res.json({ data: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** Extract inspection data from a label photo using AI. */
+scansRouter.post('/:id/label-photo/extract', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const scanId = req.params.id as string;
+    const scan = await prisma.scanRecord.findUnique({ where: { id: scanId } });
+
+    if (!scan) { res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Scan not found' } }); return; }
+    if (scan.inspectorId !== req.inspector!.inspectorId) { res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not your scan' } }); return; }
+    if (!scan.labelPhotoPath) { res.status(400).json({ error: { code: 'NO_LABEL_PHOTO', message: 'No label photo uploaded' } }); return; }
+
+    const absPath = getPhotoAbsolutePath(scan.labelPhotoPath);
+    const extracted = await extractInspectionData(absPath);
+
+    const updateData: Record<string, unknown> = { labelAiRawResponse: JSON.stringify(extracted) };
+    if (extracted.lastInspectionDate) updateData.lastInspectionDate = new Date(extracted.lastInspectionDate);
+    if (extracted.certifiedUntilDate) updateData.certifiedUntilDate = new Date(extracted.certifiedUntilDate);
+    if (extracted.lbLmbPercentage) updateData.lbLmbPercentage = extracted.lbLmbPercentage;
+    if (extracted.lbLmbTestDate) updateData.lbLmbTestDate = new Date(extracted.lbLmbTestDate);
+    if (extracted.inspectionComment) updateData.inspectionComment = extracted.inspectionComment;
+    if (extracted.externalInspectionNumber) updateData.externalInspectionNumber = extracted.externalInspectionNumber;
+
+    const updated = await prisma.scanRecord.update({
+      where: { id: scanId },
+      data: updateData,
+      include: { confirmedType: true },
+    });
+
+    res.json({ data: updated, extracted });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** Update inspection data fields on a scan. */
+scansRouter.patch('/:id/inspection', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const scanId = req.params.id as string;
+    const body = req.body as {
+      lastInspectionDate?: string | null;
+      certifiedUntilDate?: string | null;
+      lbLmbPercentage?: string | null;
+      lbLmbTestDate?: string | null;
+      inspectionComment?: string | null;
+      externalInspectionNumber?: string | null;
+    };
+
+    const scan = await prisma.scanRecord.findUnique({ where: { id: scanId } });
+    if (!scan) { res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Scan not found' } }); return; }
+    if (scan.inspectorId !== req.inspector!.inspectorId) { res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not your scan' } }); return; }
+
+    const data: Record<string, unknown> = {};
+    if (body.lastInspectionDate !== undefined) data.lastInspectionDate = body.lastInspectionDate ? new Date(body.lastInspectionDate) : null;
+    if (body.certifiedUntilDate !== undefined) data.certifiedUntilDate = body.certifiedUntilDate ? new Date(body.certifiedUntilDate) : null;
+    if (body.lbLmbPercentage !== undefined) data.lbLmbPercentage = body.lbLmbPercentage || null;
+    if (body.lbLmbTestDate !== undefined) data.lbLmbTestDate = body.lbLmbTestDate ? new Date(body.lbLmbTestDate) : null;
+    if (body.inspectionComment !== undefined) data.inspectionComment = body.inspectionComment || null;
+    if (body.externalInspectionNumber !== undefined) data.externalInspectionNumber = body.externalInspectionNumber || null;
+
+    const updated = await prisma.scanRecord.update({
+      where: { id: scanId },
+      data,
+      include: { confirmedType: true },
+    });
+
+    res.json({ data: updated });
   } catch (error) {
     next(error);
   }

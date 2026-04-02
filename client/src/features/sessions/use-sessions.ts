@@ -24,6 +24,7 @@ interface SessionListItem {
 interface ScanRecordItem {
   id: string;
   photoPath: string | null;
+  labelPhotoPath: string | null;
   floorId: string;
   confirmedTypeId: string | null;
   confirmedType: { nameNl: string } | null;
@@ -34,6 +35,12 @@ interface ScanRecordItem {
   status: string;
   parentScanId?: string | null;
   onScanPromptAnswers?: Record<string, unknown> | null;
+  lastInspectionDate?: string | null;
+  certifiedUntilDate?: string | null;
+  lbLmbPercentage?: string | null;
+  lbLmbTestDate?: string | null;
+  inspectionComment?: string | null;
+  externalInspectionNumber?: string | null;
 }
 
 interface FloorItem {
