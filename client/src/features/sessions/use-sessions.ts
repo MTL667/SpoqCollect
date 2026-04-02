@@ -18,6 +18,7 @@ interface SessionListItem {
   status: string;
   createdAt: string;
   buildingType: BuildingTypeSummary;
+  inspector?: { id: string; name: string };
   _count: { scanRecords: number };
 }
 
